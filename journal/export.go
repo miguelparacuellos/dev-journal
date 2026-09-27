@@ -269,10 +269,10 @@ func escapeBlock(line string) string {
 	if content == "" {
 		return line
 	}
-	if marker := listMarker(content); marker != "" {
+	rule := strings.Trim(content, "-=*_ ") == ""
+	if marker := listMarker(content); marker != "" && !rule {
 		return lead + marker + escapeBlock(content[len(marker):])
 	}
-	rule := strings.Trim(content, "-=*_ ") == ""
 	if rule || strings.ContainsRune("#><|", rune(content[0])) || strings.HasPrefix(content, "```") || strings.HasPrefix(content, "~~~") {
 		return lead + "\\" + content
 	}

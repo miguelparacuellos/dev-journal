@@ -217,7 +217,7 @@ func TestExportKeepsTheRecentWorkSourceTheProposalWasSavedWith(t *testing.T) {
 
 func TestMarkdownLookingTextCannotBreakTheExportStructure(t *testing.T) {
 	app, _ := journal.Open(t.TempDir() + "/journal.json")
-	if _, err := app.Capture("2026-09-25", "# Not a heading\n---\n> not a quote\n- # item\n12. ```"); err != nil {
+	if _, err := app.Capture("2026-09-25", "# Not a heading\n---\n> not a quote\n- # item\n12. ```\n- - -"); err != nil {
 		t.Fatal(err)
 	}
 	meeting, _ := app.StartMeeting("2026-09-30")
@@ -229,7 +229,7 @@ func TestMarkdownLookingTextCannotBreakTheExportStructure(t *testing.T) {
 	}
 	markdown := app.Markdown("2026-09-30")
 	assertInOrder(t, markdown,
-		"- \\# Not a heading  \n  \\---  \n  \\> not a quote  \n  - \\# item  \n  12. \\```",
+		"- \\# Not a heading  \n  \\---  \n  \\> not a quote  \n  - \\# item  \n  12. \\```  \n  \\- - -",
 		"#### Notes", "\\## Next  \n\\```  \nunclosed fence  \n  \\<div>  \n- a list stays a list",
 		"#### Agreements (1)", "- Agreed after the notes",
 	)
