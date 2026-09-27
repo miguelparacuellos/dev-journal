@@ -177,3 +177,27 @@ focus to the log; the actual PTY checks exercise two log entries with a one-task
 plan and reading after the save. An additional draft-state audit fixed an empty
 blocker editor retaining its capture kind after Escape, with a Tasks routing
 regression. Native visual validation remains partial as documented above.
+
+
+## Ticket 04 — O2O topics
+
+The O2O view (**o**) keeps the capture-first composer and lists open topics with
+the day each was collected. At 110 columns or more, a word-wrapped
+selected-topic preview is added. A temporary render probe measured 23 rows at
+80x24 for the empty state, 3 topics, 30 topics (six visible rows plus a range
+footer), and the complete help screen. The probe was removed. At 120x40 the list
+and preview widths add up exactly to the content width.
+
+`scripts/o2o_qa.py` exercises the built binary in a real OS PTY at 80x24
+monochrome/ASCII and 120x40 light/Unicode. It covers the empty state, capture
+without a meeting, rejection of an empty topic, bracketed multiline paste, draft
+protection when switching views, blocker routing from O2O, full-text reading
+after a resize, CLI capture on another day, review after reopening later in the
+month, and a regression for an abandoned correction. Bubble Tea redraws only
+changed cells, so the script waits on tokens that are emitted whole.
+
+Baseline PTY rerun: 30 launches, median 77.68 ms, p95 82.40 ms; save 16.85 ms.
+The Tasks and Daily PTY checks also passed. One Daily check run failed on a
+token split by a cell-diff redraw and passed on three reruns. This fragility
+predates ticket 04. Native emulator, font and contrast review is still
+unverified.
