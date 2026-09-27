@@ -201,3 +201,30 @@ The Tasks and Daily PTY checks also passed. One Daily check run failed on a
 token split by a cell-diff redraw and passed on three reruns. This fragility
 predates ticket 04. Native emulator, font and contrast review is still
 unverified.
+
+
+## Ticket 05 — O2O meetings
+
+During a meeting the O2O view keeps the composer. It lists every open topic and
+every topic addressed in this meeting with `[open]` or `[addressed]` markers, in
+capture order, so marking a topic never moves its row. Below the list, the
+compact layout shows three summary lines for notes, agreements, and follow-ups.
+At 110 columns or more the meeting record appears beside the list instead. The
+meetings pane (`m`) lists meetings newest first, and at 110 columns or more it
+previews the selected record. A temporary render probe measured 23 of 24 rows
+and at most 80 columns at 80x24, and 39 rows and 120 columns at 120x40, for
+30 topics, a meeting in progress with 40 lines of notes, help, the full record,
+the meetings pane and the state after closing. The probe was removed. Adding the
+meetings summary line reduced the no-meeting topic list at 80x24 from six
+visible rows to five.
+
+`scripts/o2o_qa.py` adds the complete meeting cycle in a real OS PTY at 80x24
+mono/ASCII, followed by history browsing, record reading across a resize and a
+second meeting at 120x40 light/Unicode. It checks the saved JSON relationships
+and the `meetings` CLI output. The script polls the saved journal for state
+changes whose redraws only touch a few cells.
+
+Baseline PTY rerun: 30 launches, median 78.69 ms, p95 82.00 ms; save 16.39 ms.
+The Tasks and Daily PTY checks also passed. One Daily run failed again on a
+token split by a cell-diff redraw and passed on three reruns; this predates
+ticket 05. Native emulator, font and contrast review is still unverified.
