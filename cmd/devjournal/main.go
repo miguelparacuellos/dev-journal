@@ -66,13 +66,7 @@ func run() error {
 			}
 			return e
 		case "tasks":
-			for _, task := range app.Tasks() {
-				state := "open"
-				if task.Completed {
-					state = "done"
-				}
-				fmt.Printf("%s  [%s] %s\n", task.ID, state, task.Text)
-			}
+			printTasks(app.Tasks())
 			return nil
 		case "plan", "complete", "unplan":
 			if len(args) != 2 {
@@ -92,13 +86,7 @@ func run() error {
 			return err
 		case "planned":
 			fmt.Println("Plan for", *day)
-			for _, task := range app.Plan(*day) {
-				state := "open"
-				if task.Completed {
-					state = "done"
-				}
-				fmt.Printf("%s  [%s] %s\n", task.ID, state, task.Text)
-			}
+			printTasks(app.Plan(*day))
 			return nil
 		case "log":
 			for _, e := range app.Entries(*day) {
@@ -114,4 +102,14 @@ func run() error {
 	}
 	_, err = tea.NewProgram(newModel(app, *day, *theme, *ascii)).Run()
 	return err
+}
+
+func printTasks(tasks []journal.Task) {
+	for _, task := range tasks {
+		state := "open"
+		if task.Completed {
+			state = "done"
+		}
+		fmt.Printf("%s  [%s] %s\n", task.ID, state, task.Text)
+	}
 }

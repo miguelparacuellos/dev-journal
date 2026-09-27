@@ -55,6 +55,15 @@ func (m *model) size() {
 			m.preview.SetContent(ansi.Hardwrap(displayText(entries[m.selected].Text), max(20, m.width-8), true))
 		}
 	}
+	if m.mode == "task-detail" {
+		tasks := m.tasks()
+		if m.planFocus {
+			tasks = m.app.Plan(m.today)
+		}
+		if len(tasks) > 0 {
+			m.preview.SetContent(ansi.Hardwrap(displayText(tasks[m.selected].Text), max(20, m.width-8), true))
+		}
+	}
 }
 func (m *model) entries() []journal.Entry { return m.app.Entries(m.day) }
 func (m *model) save() {
@@ -343,7 +352,8 @@ func (m model) View() tea.View {
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture / edit: Enter inserts a line; Ctrl+S saves.\nEsc pauses editing and keeps your draft.\n\nBrowse: Tab Today/Tasks · n capture/resume · Enter full text\nTasks: p plan for today · d complete · c open/completed\nToday: p focus plan / return to log · d complete · u remove selected plan\ne correct daily log entry\nUp/Down or j/k select · Left/Right or h/l workdays\nt Today · ? help · q quit · x discard retained draft\n\nFull entry: PgUp/PgDown scroll · Esc back\n\nNo network. No mandatory hours. Saved only after a durable write.\n\nEsc closes help"
+		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
+
 	} else if m.mode == "detail" || m.mode == "task-detail" {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()
 	} else {
@@ -368,7 +378,7 @@ func (m model) View() tea.View {
 				label = "COMPLETED TASKS"
 			}
 			body += m.style("title").Render(fmt.Sprintf("%s  %d", label, len(tasks))) + "\n"
-			body += m.taskRows(tasks, max(2, m.height-15), w, true)
+			body += m.taskRows(tasks, max(1, m.height-17), w, true)
 		} else {
 			plan := m.app.Plan(m.today)
 			label := "TODAY'S PLAN • " + m.today + " • intended actions"

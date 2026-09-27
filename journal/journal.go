@@ -92,12 +92,12 @@ func (j *Journal) Capture(day, text string) (Entry, error) {
 	if err := validate(day, text); err != nil {
 		return Entry{}, err
 	}
-	id := make([]byte, 16)
-	if _, err := rand.Read(id); err != nil {
+	id, err := newID()
+	if err != nil {
 		return Entry{}, err
 	}
-	e := Entry{hex.EncodeToString(id), day, text}
-	err := j.change(func() error { j.data.Entries = append(j.data.Entries, e); return nil })
+	e := Entry{id, day, text}
+	err = j.change(func() error { j.data.Entries = append(j.data.Entries, e); return nil })
 	return e, err
 }
 func (j *Journal) Correct(id, text string) error {
@@ -178,12 +178,12 @@ func (j *Journal) CreateTask(text string) (Task, error) {
 	if strings.TrimSpace(text) == "" {
 		return Task{}, errors.New("task cannot be empty")
 	}
-	id := make([]byte, 16)
-	if _, err := rand.Read(id); err != nil {
+	id, err := newID()
+	if err != nil {
 		return Task{}, err
 	}
-	task := Task{ID: hex.EncodeToString(id), Text: text}
-	err := j.change(func() error { j.data.Tasks = append(j.data.Tasks, task); return nil })
+	task := Task{ID: id, Text: text}
+	err = j.change(func() error { j.data.Tasks = append(j.data.Tasks, task); return nil })
 	return task, err
 }
 
@@ -255,4 +255,12 @@ func (j *Journal) UnplanTask(day, id string) error {
 		j.data.Plan = selections
 		return nil
 	})
+}
+
+func newID() (string, error) {
+	id := make([]byte, 16)
+	if _, err := rand.Read(id); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(id), nil
 }

@@ -102,3 +102,35 @@ Final post-fix PTY run: 30 samples; opening median 61.07 ms, p95 86.15 ms;
 multiline save 16.63 ms; 10,000-entry opening 52.91 ms and save 33.92 ms.
 Monochrome checks also reject emitted RGB color sequences. Directory metadata is
 synced after replacement; failed writes restore the in-memory saved view.
+
+
+## Ticket 02: Tasks and today's plan
+
+Extended the same visual roles to undated Tasks, an explicit open/completed
+filter, and a separate dated plan above the daily log. Selection remains `>`,
+completion remains text `[done]`, and intended actions say `[open]`. Tab changes
+Today/Tasks from browsing; retained drafts require saving or discarding before a
+view change so text cannot be routed into the wrong kind of record.
+
+`python3 scripts/tasks_qa.py bin/devjournal` passed with the actual built binary
+at 80x24 monochrome/ASCII and 120x40 light/Unicode: task capture, planning,
+deselection, completion, next-day empty plan, reopening, safe drafts, accumulated
+Tasks/plans, and long task detail shrinking 120 to80 columns. A temporary render
+probe measured 23 lines for an accumulated 12-task list at 80x24. The baseline
+terminal check also passed: 30 launches, median 69.52ms, p95 71.36ms; save 16.66ms;
+10,000-entry opening 52.27ms and save 33.34ms. Native terminal rendering remains
+unverified under the limitation recorded above.
+
+### Standards
+
+No hard standard breaches. Two duplication smells (ID generation and CLI task
+formatting) were removed. Typed navigation is a judgement call deferred until
+additional views establish their needs. The dated Task association is represented
+in storage; the existing Today's plan glossary concept describes its behavior.
+
+### Spec
+
+Two P2 findings fixed: task-detail text needed rewrapping on resize, and
+accumulated Tasks needed a smaller compact row budget to retain visible actions.
+Both have actual PTY regression evidence. Help was shortened to fit compact
+screens. No scope creep or normal keyboard-path panic found.

@@ -104,4 +104,44 @@ with tempfile.TemporaryDirectory() as directory:
     tasks=subprocess.check_output([binary,"--data",str(path),"tasks"]).decode()
     assert "[done] Review deployment" in tasks and "[open] Retained task draft" in tasks
     assert "[done] Review deployment" in subprocess.check_output([binary,"--data",str(path),"--date","2026-09-27","planned"]).decode()
+    # Accumulated compact Tasks keeps the action footer visible while navigating.
+    for i in range(12):
+        subprocess.run([binary,"--data",str(path),"task",f"Accumulated action {i}"],check=True,stdout=subprocess.PIPE)
+    master,process,_=launch(path)
+    until(master,b"Ctrl+S")
+    os.write(master,b"\x1b")
+    time.sleep(0.08)
+    os.write(master,b"\t")
+    until(master,b"Tab Today")
+    os.write(master,b"j"*12)
+    until(master,b"Accumulated action 11")
+    close(master,process)
+    for line in subprocess.check_output([binary,"--data",str(path),"tasks"]).decode().splitlines():
+        if "[open]" in line:
+            subprocess.run([binary,"--data",str(path),"--date","2026-09-27","plan",line.split()[0]],check=True,stdout=subprocess.PIPE)
+    master,process,_=launch(path)
+    until(master,b"Ctrl+S")
+    os.write(master,b"\x1b")
+    time.sleep(0.08)
+    os.write(master,b"p")
+    until(master,b"u Remove")
+    os.write(master,b"j"*13)
+    until(master,b"Accumulated action 11")
+    close(master,process)
+    # Full task text is rewrapped when shrinking the actual terminal.
+    long_path=pathlib.Path(directory)/"long-task.json"
+    subprocess.run([binary,"--data",str(long_path),"task","word "*40+"TAIL"],check=True,stdout=subprocess.PIPE)
+    master,process,_=launch(long_path,120,40)
+    until(master,b"Ctrl+S")
+    os.write(master,b"\x1b")
+    time.sleep(0.08)
+    os.write(master,b"\t")
+    until(master,b"OPEN TASKS")
+    os.write(master,b"\r")
+    until(master,b"TAIL")
+    fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack("HHHH",24,80,0,0))
+    import signal
+    process.send_signal(signal.SIGWINCH)
+    until(master,b"TAIL")
+    close(master,process)
     print("PASS: 80x24 / 120x40 Tasks capture, planning, deselection, completion, date rollover, reopening, draft routing")
