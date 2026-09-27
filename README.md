@@ -157,6 +157,7 @@ python3 scripts/terminal_qa.py bin/devjournal
 python3 scripts/tasks_qa.py bin/devjournal
 python3 scripts/daily_qa.py bin/devjournal
 python3 scripts/o2o_qa.py bin/devjournal
+python3 scripts/export_qa.py bin/devjournal
 ```
 
 Behavior tests use the public `journal.Journal` interface shared by both UI

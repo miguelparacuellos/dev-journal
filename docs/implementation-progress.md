@@ -1,6 +1,6 @@
 # Implementation progress
 
-Last updated: 2026-09-27. This is the durable handoff for resuming after a session or credit interruption. Check `git status` and `git log` before acting. Tickets 01–05 are implemented and reviewed; the next implementation ticket is 06.
+Last updated: 2026-09-27. This is the durable handoff for resuming after a session or credit interruption. Check `git status` and `git log` before acting. Tickets 01–06 are implemented and reviewed; the next implementation ticket is 07.
 
 ## Working agreement
 
@@ -20,71 +20,63 @@ Last updated: 2026-09-27. This is the durable handoff for resuming after a sessi
 | [03 — Daily proposal](../.scratch/dev-journal/issues/03-prepare-and-save-a-daily-proposal.md) | Implemented and reviewed; native visual QA pending | `c179593`, `8dce835`; review baseline `06eeb99`. |
 | [04 — O2O topics](../.scratch/dev-journal/issues/04-collect-and-review-o2o-topics.md) | Implemented and reviewed | `3aa2880`, `76597b4`; review baseline `387ba08`. Persistent open topics, `topic`/`topics` CLI, O2O view (`o`), `scripts/o2o_qa.py`. |
 | [05 — O2O meetings and actions](../.scratch/dev-journal/issues/05-record-o2o-meetings-and-follow-up-actions.md) | Implemented and reviewed | `66bf651`, `1a48be4`, `8f749f7`; review baseline `c3613f3`. Meetings, addressed topics, agreements, follow-up tasks, history pane (`m`), `meetings` CLI, meeting cycle in `scripts/o2o_qa.py`. |
-| [06 — Markdown export](../.scratch/dev-journal/issues/06-export-the-journal-as-markdown.md) | Not started | Unblocked (03 and 05 done). Next: fresh subagent, current HEAD as review baseline. |
-| [07 — JSON backup and restore](../.scratch/dev-journal/issues/07-back-up-and-restore-the-complete-journal.md) | Not started | Unblocked (03 and 05 done); run after 06. |
+| [06 — Markdown export](../.scratch/dev-journal/issues/06-export-the-journal-as-markdown.md) | Implemented and reviewed | `d59d8ee`, `43bc67f`, `391c9c8`, `7661821`; review baseline `ea74da1`. `Journal.Markdown`/`ExportMarkdown`, `export FILE.md` / `export -` CLI, help pointer, `scripts/export_qa.py`. |
+| [07 — JSON backup and restore](../.scratch/dev-journal/issues/07-back-up-and-restore-the-complete-journal.md) | Not started | Unblocked. Next: fresh subagent, current HEAD as review baseline. |
 
-## Exact current handoff: start ticket 06
+## Exact current handoff: start ticket 07
 
-A fresh implementation agent completed ticket 05. `66bf651` adds O2O meetings
-to `journal.Journal`: `StartMeeting`, `CurrentMeeting`, `SaveMeetingNotes`,
-`AddressTopic`, `RecordAgreement`, `CreateFollowUpTask`, `CloseMeeting`,
-`Agenda` and `Meetings`, which return `MeetingRecord` values (meeting, addressed
-topics, agreements, follow-up tasks). The O2O view gains the meeting workflow
-(`s` start, `a` addressed, `w` notes, `r` agreement, `f` follow-up, `v`
-record, `c` then `c` close, `m` meetings pane). Follow-up tasks are shown with
-an `O2O:` marker in Tasks and Today's plan. There is a `meetings` CLI command.
-README, glossary (addressed topic, follow-up task) and `scripts/o2o_qa.py` were
-updated. `1a48be4` and `8f749f7` fix the review findings.
+A fresh implementation agent completed ticket 06. `d59d8ee` adds
+`Journal.Markdown(exportedOn)` and `Journal.ExportMarkdown(path, exportedOn)`:
+a readable document with the daily log by workday (entries, today's plan with
+task states, blockers, saved daily proposal with its recent-work source), tasks
+open/completed with planned dates and O2O origin, open O2O topics, and every
+meeting record. Empty journals get a clear one-line document. Export writes
+atomically, never changes the journal, and refuses the journal and lock paths.
+Meeting record rendering moved into the journal package
+(`MeetingRecord.State/Text/Details`, shared sections) and `Task.State` gives the
+open/done word. The CLI has `export FILE.md` and `export -`; the TUI help's last
+line points to it (no TUI key). README and `scripts/export_qa.py` were added or
+updated. `43bc67f`, `391c9c8` and `7661821` fix review findings: user lines that
+Markdown would read as structure are escaped (also after list markers), and
+daily proposals now store the recent-work `source` when saved.
 
 Validation: the full Go suite, vet, gofmt and build passed. The terminal, Tasks,
-Daily and O2O PTY checks passed; the O2O check passed three runs in a row. The
-startup median was 78.69 ms and p95 82.00 ms. A temporary render probe measured
-23 of 24 rows and at most 80 columns at 80x24, and 39 rows and 120 columns at
-120x40, for every new O2O state and help. One Daily run flaked again on a
-cell-diff split token ("Accumulated blocker 11") and passed on three reruns.
-This predates ticket 05.
+Daily, O2O and Export PTY checks passed (startup median 66.07 ms, p95 69.6 ms).
+A temporary render probe kept help within 24 rows and 80 columns at 80x24. The
+Daily check did not flake this time. Review against `ea74da1`: Standards had no
+hard violations (judgement calls fixed); Spec's P1 and P2 findings were fixed
+and the final recheck found no P1 or P2. All six acceptance items are checked.
+Native emulator, font, contrast and Markdown-viewer rendering review remain
+unverified.
 
-Review against `c3613f3`: Standards found no hard violations. The judgement
-calls it raised were fixed: one table for the meeting capture kinds, shared
-list windowing and preview helpers, named layout rows, and no more middle man.
-Spec raised two P2s, both fixed: `v` was not discoverable at 80x24, and reading
-notes with `w` then pressing Esc left a draft that blocked closing. Three P3s
-were fixed. The `meetings` CLI was kept as a listing that complements `topics`.
-The Spec recheck found no P1 or P2; its hint and footer P3s were fixed in `8f749f7`.
-All eight acceptance items are checked. Native emulator, font and contrast
-review is still unverified.
+Notes for ticket 07:
 
-Notes for tickets 06 and 07:
-
-- Stored data (version 1) now also holds `meetings` (`id`, `day`, `notes`,
-  `closed_on`), `agreements` (`id`, `meeting_id`, `text`),
-  `topics[].addressed_in` (a meeting ID) and `tasks[].meeting_id`. All of them
-  use `omitempty`. Relationships are by ID only: a follow-up task and its
-  meeting, an agreement and its meeting, an addressed topic and the meeting
-  that addressed it, and a plan selection and its task.
-- For Markdown export (06), `Journal.Meetings()` returns every meeting newest
-  first as a `MeetingRecord`. `meetingRecordText` in `cmd/devjournal/o2o.go`
-  already renders a readable plain-text record, and the CLI `meetings` uses it.
-  Reuse or adapt it rather than writing a second renderer. `OpenTopics()`
-  excludes addressed topics, so export the addressed ones through the meeting
-  records. Tasks keep their current completion state, and follow-ups carry
-  `MeetingID`.
-- For JSON backup and restore (07), a restore must keep these ID references
-  consistent and must preserve at most one meeting without `closed_on` (only
-  one can be in progress). Validate references on restore rather than trusting
-  them. `change()` snapshots every slice for rollback. Add any new slice there
-  and extend `TestFailedMeetingSavesLeaveTheSessionUnchangedAndCanBeRetried`,
-  which fails when a snapshot line is missing.
+- Stored data (version 1) now also holds `prepared[].source`, a pointer
+  (`*string`): absent for proposals saved before ticket 06, `""` when no earlier
+  workday had entries, otherwise a workday. A backup and restore must keep the
+  difference between absent and `""` (do not normalize it away).
+- Relationships are by ID only: follow-up task → meeting (`tasks[].meeting_id`),
+  agreement → meeting, addressed topic → meeting (`topics[].addressed_in`), plan
+  selection → task. The Markdown export silently omits dangling references (an
+  addressed topic whose meeting is missing, a plan selection whose task is
+  missing). Restore must validate references rather than trust them, and keep at
+  most one meeting without `closed_on`.
+- `change()` snapshots every slice for rollback; add any new slice there and
+  extend `TestFailedMeetingSavesLeaveTheSessionUnchangedAndCanBeRetried`.
+- `writeFile(path, tempPattern, b)` in `journal/journal.go` is the shared
+  atomic writer (temp file, sync, rename, directory sync); reuse it for a backup
+  file. `ExportMarkdown` shows the path guard against overwriting the journal or
+  its lock file (`lockPath()`).
+- The TUI help still uses 23 of 24 rows at 80x24; its last line now names the
+  Markdown export. Change an existing line (for example, extend that one within
+  72 columns) rather than adding one. Hint lines must fit 72 columns or use
+  `fitHints`.
 - PTY scripts: Bubble Tea redraws only changed cells, so wait for tokens that
-  are emitted whole (unique status suffixes). Consecutive `until` calls cannot
-  match the same frame. `saved_until` in `o2o_qa.py` polls the saved JSON for
-  state checks.
-- Hint lines must fit within 72 columns at 80x24; use `fitHints` with a compact
-  variant. The help screen uses 23 of 24 rows at 80x24, so there is no room
-  for a new line. Change an existing line instead.
+  are emitted whole; consecutive `until` calls cannot match the same frame.
+  `daily_qa.py` has a known intermittent cell-diff flake; rerun it.
 
-Next action: spawn a fresh implementation subagent for ticket 06, using the
-current HEAD as its fixed code-review baseline. Then continue with 07.
+Next action: spawn a fresh implementation subagent for ticket 07, using the
+current HEAD as its fixed code-review baseline.
 
 ## Runtime and commands
 
@@ -101,6 +93,7 @@ python3 scripts/terminal_qa.py /tmp/devjournal
 python3 scripts/tasks_qa.py /tmp/devjournal
 python3 scripts/daily_qa.py /tmp/devjournal
 python3 scripts/o2o_qa.py /tmp/devjournal
+python3 scripts/export_qa.py /tmp/devjournal
 ```
 
 Use an explicit temporary `--data` path when trying the application to avoid mixing test fixtures with the user's journal. See `README.md` for current commands and shortcuts.

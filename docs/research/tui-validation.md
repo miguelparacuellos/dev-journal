@@ -228,3 +228,18 @@ Baseline PTY rerun: 30 launches, median 78.69 ms, p95 82.00 ms; save 16.39 ms.
 The Tasks and Daily PTY checks also passed. One Daily run failed again on a
 token split by a cell-diff redraw and passed on three reruns; this predates
 ticket 05. Native emulator, font and contrast review is still unverified.
+
+
+## Ticket 06 — Markdown export
+
+Export is a CLI command (`export FILE.md`, `export -`); the TUI only gains a
+pointer on the last help line, replacing "Saved locally after a durable write.
+Esc closes help." (the Esc Back hint still shows how to leave help). A
+temporary render probe measured the help within 24 rows and at most 80 columns
+at 80x24, and within 40 rows and 120 columns at 120x40; it was removed.
+`scripts/export_qa.py` checks the built binary and the help pointer in a real
+OS PTY at 80x24 mono/ASCII. Baseline PTY rerun: 30 launches, median 66.07 ms,
+p95 69.6 ms. The Tasks, Daily and O2O PTY checks also passed. The exported
+Markdown was read raw; its rendering in a Markdown viewer was not visually
+checked. Native emulator, font and contrast review is still unverified.
+
