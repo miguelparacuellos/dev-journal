@@ -325,3 +325,275 @@ func TestTopicsFromTwoOpenSessionsAreBothKept(t *testing.T) {
 		t.Fatalf("a concurrent topic was lost: %#v", topics)
 	}
 }
+
+func TestMeetingNotesAreSavedAndSurviveReopening(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	if _, open := app.CurrentMeeting(); open {
+		t.Fatal("new journal has a meeting in progress")
+	}
+	app.AddTopic("2026-09-03", "Feedback on the incident review")
+	meeting, err := app.StartMeeting("2026-09-30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if topics := app.OpenTopics(); len(topics) != 1 {
+		t.Fatalf("starting a meeting changed open topics: %#v", topics)
+	}
+	if err := app.SaveMeetingNotes(meeting.ID, "Talked about on-call\nand the review"); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	current, open := reopened.CurrentMeeting()
+	if !open || current.Meeting.ID != meeting.ID || current.Meeting.Day != "2026-09-30" || current.Meeting.Notes != "Talked about on-call\nand the review" || current.Meeting.ClosedOn != "" {
+		t.Fatalf("meeting in progress lost: %#v", current)
+	}
+	if _, err := reopened.StartMeeting("2026-09-30"); err == nil {
+		t.Fatal("a second meeting started while one is in progress")
+	}
+}
+
+func TestAddressedTopicsAreDistinguishedFromTopicsThatRemainOpen(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	first, _ := app.AddTopic("2026-09-03", "Feedback on the incident review")
+	second, _ := app.AddTopic("2026-09-21", "Proposal: rotate on-call")
+	third, _ := app.AddTopic("2026-09-22", "Promotion path")
+	meeting, _ := app.StartMeeting("2026-09-30")
+	if err := app.AddressTopic(meeting.ID, first.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.AddressTopic(meeting.ID, third.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	// A topic marked by mistake can be reopened while the meeting is in progress.
+	if err := app.AddressTopic(meeting.ID, third.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	open := reopened.OpenTopics()
+	if len(open) != 2 || open[0].ID != second.ID || open[1].ID != third.ID {
+		t.Fatalf("addressed topic still open or open topic lost: %#v", open)
+	}
+	current, _ := reopened.CurrentMeeting()
+	if len(current.Addressed) != 1 || current.Addressed[0].ID != first.ID || current.Addressed[0].AddressedIn != meeting.ID || current.Addressed[0].Text != first.Text {
+		t.Fatalf("addressed topics not recorded with the meeting: %#v", current.Addressed)
+	}
+	for _, err := range []error{reopened.AddressTopic(meeting.ID, "missing", true), reopened.AddressTopic("missing", second.ID, true)} {
+		if err == nil {
+			t.Fatal("invalid addressing accepted")
+		}
+	}
+}
+
+func TestAgreementsAndFollowUpTasksBelongToTheMeeting(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	ordinary, _ := app.CreateTask("Review deployment")
+	meeting, _ := app.StartMeeting("2026-09-30")
+	agreement, err := app.RecordAgreement(meeting.ID, "Rotate on-call monthly\nstarting in October")
+	if err != nil {
+		t.Fatal(err)
+	}
+	followUp, err := app.CreateFollowUpTask(meeting.ID, "Draft the on-call handoff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if followUp.MeetingID != meeting.ID || agreement.MeetingID != meeting.ID || ordinary.MeetingID != "" {
+		t.Fatalf("relationships missing: %#v %#v %#v", followUp, agreement, ordinary)
+	}
+	reopened, _ := journal.Open(path)
+	current, _ := reopened.CurrentMeeting()
+	if len(current.Agreements) != 1 || current.Agreements[0] != agreement || current.Agreements[0].Text != "Rotate on-call monthly\nstarting in October" {
+		t.Fatalf("agreement lost: %#v", current.Agreements)
+	}
+	if len(current.FollowUps) != 1 || current.FollowUps[0] != followUp {
+		t.Fatalf("follow-up task lost: %#v", current.FollowUps)
+	}
+	// The follow-up is an ordinary task: listed in Tasks, planned without completing, then completed.
+	tasks := reopened.Tasks()
+	if len(tasks) != 2 || tasks[1] != followUp {
+		t.Fatalf("follow-up not available in Tasks: %#v", tasks)
+	}
+	if err := reopened.PlanTask("2026-10-01", followUp.ID); err != nil {
+		t.Fatal(err)
+	}
+	if plan := reopened.Plan("2026-10-01"); len(plan) != 1 || plan[0].Completed || len(reopened.Plan("2026-10-02")) != 0 {
+		t.Fatalf("follow-up planning differs from other tasks: %#v", plan)
+	}
+	if err := reopened.CompleteTask(followUp.ID); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := journal.Open(path)
+	current, _ = again.CurrentMeeting()
+	if !current.FollowUps[0].Completed || !again.Plan("2026-10-01")[0].Completed || again.Tasks()[0].Completed {
+		t.Fatalf("completion not shared between Tasks and the meeting: %#v", current.FollowUps)
+	}
+	if _, err := again.RecordAgreement(meeting.ID, " \n"); err == nil {
+		t.Fatal("blank agreement accepted")
+	}
+	if _, err := again.CreateFollowUpTask(meeting.ID, " "); err == nil {
+		t.Fatal("blank follow-up accepted")
+	}
+	if _, err := again.RecordAgreement("missing", "Orphan"); err == nil {
+		t.Fatal("agreement without a meeting accepted")
+	}
+	if _, err := again.CreateFollowUpTask("missing", "Orphan"); err == nil {
+		t.Fatal("follow-up without a meeting accepted")
+	}
+	if len(again.Tasks()) != 2 {
+		t.Fatal("rejected follow-up changed Tasks")
+	}
+}
+
+func TestClosingPreservesTheMeetingAndLeavesUnaddressedTopicsForTheNextOne(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	addressed, _ := app.AddTopic("2026-09-03", "Feedback on the incident review")
+	remaining, _ := app.AddTopic("2026-09-21", "Promotion path")
+	september, _ := app.StartMeeting("2026-09-30")
+	app.SaveMeetingNotes(september.ID, "September notes")
+	app.AddressTopic(september.ID, addressed.ID, true)
+	agreement, _ := app.RecordAgreement(september.ID, "Rotate on-call monthly")
+	followUp, _ := app.CreateFollowUpTask(september.ID, "Draft the on-call handoff")
+	if err := app.CloseMeeting(september.ID, "2026-09-29"); err == nil {
+		t.Fatal("meeting closed before it started")
+	}
+	if err := app.CloseMeeting(september.ID, "2026-09-30"); err != nil {
+		t.Fatal(err)
+	}
+	if _, open := app.CurrentMeeting(); open {
+		t.Fatal("closed meeting still in progress")
+	}
+	// A closed meeting is history: it no longer accepts changes.
+	for _, err := range []error{
+		app.SaveMeetingNotes(september.ID, "Rewritten"),
+		app.AddressTopic(september.ID, remaining.ID, true),
+		app.AddressTopic(september.ID, addressed.ID, false),
+		app.CloseMeeting(september.ID, "2026-10-01"),
+	} {
+		if err == nil {
+			t.Fatal("closed meeting changed")
+		}
+	}
+	if _, err := app.RecordAgreement(september.ID, "Late"); err == nil {
+		t.Fatal("agreement added to a closed meeting")
+	}
+	if _, err := app.CreateFollowUpTask(september.ID, "Late"); err == nil {
+		t.Fatal("follow-up added to a closed meeting")
+	}
+
+	reopened, _ := journal.Open(path)
+	if open := reopened.OpenTopics(); len(open) != 1 || open[0].ID != remaining.ID {
+		t.Fatalf("unaddressed topic not available for the next meeting: %#v", open)
+	}
+	october, err := reopened.StartMeeting("2026-10-28")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reopened.AddressTopic(october.ID, addressed.ID, false); err == nil {
+		t.Fatal("a later meeting reopened a topic addressed earlier")
+	}
+	reopened.AddressTopic(october.ID, remaining.ID, true)
+	reopened.CloseMeeting(october.ID, "2026-10-28")
+
+	final, _ := journal.Open(path)
+	meetings := final.Meetings()
+	if len(meetings) != 2 || meetings[0].Meeting.ID != october.ID || meetings[1].Meeting.ID != september.ID {
+		t.Fatalf("meeting history not newest first: %#v", meetings)
+	}
+	past := meetings[1]
+	if past.Meeting.Notes != "September notes" || past.Meeting.ClosedOn != "2026-09-30" || past.Meeting.Day != "2026-09-30" {
+		t.Fatalf("closed meeting lost its notes or dates: %#v", past.Meeting)
+	}
+	if len(past.Addressed) != 1 || past.Addressed[0].ID != addressed.ID || len(past.Agreements) != 1 || past.Agreements[0] != agreement || len(past.FollowUps) != 1 || past.FollowUps[0].ID != followUp.ID {
+		t.Fatalf("closed meeting lost its records: %#v", past)
+	}
+	if len(meetings[0].Addressed) != 1 || meetings[0].Addressed[0].ID != remaining.ID || len(meetings[0].Agreements) != 0 || len(meetings[0].FollowUps) != 0 {
+		t.Fatalf("records leaked between meetings: %#v", meetings[0])
+	}
+	if len(final.OpenTopics()) != 0 || len(final.Tasks()) != 1 || len(final.Workdays()) != 0 {
+		t.Fatal("meeting history changed unrelated concepts")
+	}
+	if _, err := final.StartMeeting("October"); err == nil {
+		t.Fatal("invalid meeting date accepted")
+	}
+	if err := final.CloseMeeting("missing", "2026-10-28"); err == nil {
+		t.Fatal("unknown meeting closed")
+	}
+}
+
+func TestFailedMeetingSavesLeaveTheSessionUnchangedAndCanBeRetried(t *testing.T) {
+	directory := t.TempDir()
+	path := directory + "/data/journal.json"
+	app, _ := journal.Open(path)
+	topic, _ := app.AddTopic("2026-09-03", "Feedback")
+	meeting, _ := app.StartMeeting("2026-09-30")
+	// A read-only storage directory makes each write fail after the change is applied.
+	if err := os.Chmod(directory+"/data", 0500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(directory+"/data", 0700)
+	unchanged := func(action string, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatalf("%s: save falsely reported success", action)
+		}
+		current, open := app.CurrentMeeting()
+		if !open || current.Meeting.ClosedOn != "" || current.Meeting.Notes != "" || len(current.Addressed)+len(current.Agreements)+len(current.FollowUps) != 0 || len(app.OpenTopics()) != 1 || len(app.Meetings()) != 1 || len(app.Tasks()) != 0 {
+			t.Fatalf("%s: failed save changed the session: %#v", action, current)
+		}
+	}
+	unchanged("address", app.AddressTopic(meeting.ID, topic.ID, true))
+	unchanged("notes", app.SaveMeetingNotes(meeting.ID, "Notes"))
+	_, err := app.RecordAgreement(meeting.ID, "Agreed")
+	unchanged("agreement", err)
+	_, err = app.CreateFollowUpTask(meeting.ID, "Follow up")
+	unchanged("follow-up", err)
+	unchanged("close", app.CloseMeeting(meeting.ID, "2026-09-30"))
+	os.Chmod(directory+"/data", 0700)
+	if _, err := app.RecordAgreement(meeting.ID, "Agreed"); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	if current, _ := reopened.CurrentMeeting(); len(current.Agreements) != 1 {
+		t.Fatal("retry was not saved")
+	}
+}
+
+func TestMeetingChangesFromTwoOpenSessionsAreBothKept(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	tui, _ := journal.Open(path)
+	cli, _ := journal.Open(path)
+	meeting, _ := tui.StartMeeting("2026-09-30")
+	if _, err := cli.CreateFollowUpTask(meeting.ID, "From quick capture"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tui.RecordAgreement(meeting.ID, "From the TUI"); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := tui.CurrentMeeting()
+	if len(current.Agreements) != 1 || len(current.FollowUps) != 1 {
+		t.Fatalf("a concurrent meeting change was lost: %#v", current)
+	}
+}
+
+func TestMeetingAgendaListsOpenAndAddressedTopicsInCaptureOrder(t *testing.T) {
+	app, _ := journal.Open(t.TempDir() + "/journal.json")
+	earlier, _ := app.AddTopic("2026-08-01", "Addressed last month")
+	first, _ := app.AddTopic("2026-09-03", "Feedback")
+	second, _ := app.AddTopic("2026-09-21", "Rotation")
+	august, _ := app.StartMeeting("2026-08-28")
+	app.AddressTopic(august.ID, earlier.ID, true)
+	app.CloseMeeting(august.ID, "2026-08-28")
+	meeting, _ := app.StartMeeting("2026-09-30")
+	app.AddressTopic(meeting.ID, first.ID, true)
+	third, _ := app.AddTopic("2026-09-30", "Raised during the meeting")
+	agenda := app.Agenda(meeting.ID)
+	if len(agenda) != 3 || agenda[0].ID != first.ID || agenda[0].AddressedIn != meeting.ID || agenda[1].ID != second.ID || agenda[2].ID != third.ID {
+		t.Fatalf("unexpected agenda: %#v", agenda)
+	}
+	if agenda := app.Agenda(""); len(agenda) != 2 || agenda[0].ID != second.ID {
+		t.Fatalf("agenda without a meeting must list open topics: %#v", agenda)
+	}
+}

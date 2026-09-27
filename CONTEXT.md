@@ -40,3 +40,11 @@ An item to discuss in a one to one that remains open until it has been addressed
 
 **O2O agreement**:
 A conclusion or commitment recorded during a one to one.
+
+**Addressed topic**:
+An O2O topic discussed in a specific one to one. It is no longer open and stays
+recorded with that meeting.
+
+**Follow-up task**:
+A task created during a one to one and associated with that meeting. It is
+planned and completed like any other task.

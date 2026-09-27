@@ -34,6 +34,8 @@ type model struct {
 	dailyFocus              int
 	shared                  map[string]bool
 	detailText              string
+	o2oPane                 string
+	confirmClose            bool
 }
 
 func newModel(app *journal.Journal, day, theme string, ascii bool) model {
@@ -62,7 +64,7 @@ func (m *model) size() {
 			m.preview.SetContent(ansi.Hardwrap(displayText(entries[m.selected].Text), max(20, m.width-8), true))
 		}
 	}
-	if m.mode == "daily-detail" || m.mode == "topic-detail" {
+	if m.mode == "daily-detail" || m.mode == "topic-detail" || m.mode == "meeting-detail" {
 		m.preview.SetContent(ansi.Hardwrap(displayText(m.detailText), max(20, m.width-8), true))
 	}
 	if m.mode == "task-detail" {
@@ -78,7 +80,10 @@ func (m *model) size() {
 func (m *model) entries() []journal.Entry { return m.app.Entries(m.day) }
 func (m *model) save() {
 	var err error
-	if m.captureKind == "blocker" {
+	_, meetingCapture := meetingCaptures[m.captureKind]
+	if meetingCapture {
+		err = m.saveMeetingCapture(m.editor.Value())
+	} else if m.captureKind == "blocker" {
 		err = m.app.RecordBlocker(m.today, m.editor.Value())
 	} else if m.captureKind == "proposal" {
 		err = m.app.SaveDaily(m.today, m.editor.Value())
@@ -110,7 +115,14 @@ func (m *model) save() {
 		m.showCompleted = false
 		m.selected = max(0, len(m.tasks())-1)
 	} else if m.section == "o2o" {
-		m.selected = max(0, len(m.app.OpenTopics())-1)
+		topics := len(m.agenda())
+		if capture, ok := meetingCaptures[kind]; ok {
+			// Meeting records leave the topic selection where it was.
+			m.selected = min(m.selected, max(0, topics-1))
+			m.status = capture.saved
+		} else {
+			m.selected = max(0, topics-1)
+		}
 		if kind == "" {
 			m.status = "Topic saved • it stays open until addressed"
 		}
@@ -130,6 +142,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyPressMsg:
 		key := msg.String()
+		// Closing a meeting needs two consecutive c presses; any other key cancels.
+		closing := m.confirmClose
+		m.confirmClose = false
+		if closing && key != "c" {
+			m.status = "Meeting still in progress"
+		}
 		if m.help {
 			if key == "esc" || key == "?" {
 				m.help = false
@@ -192,6 +210,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if key == "o" {
 				m.section = "o2o"
+				m.o2oPane = ""
 				m.editor.Placeholder = topicPlaceholder
 				m.day = m.today
 				m.planFocus = false
@@ -233,8 +252,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.section == "o2o" {
-			if next, handled := m.updateTopics(key); handled {
-				return next, nil
+			if next, cmd, handled := m.updateTopics(key, closing); handled {
+				return next, cmd
 			}
 		}
 		if m.section == "tasks" || m.planFocus {
@@ -428,17 +447,19 @@ func (m model) View() tea.View {
 		date = "Undated actions • deliberately select today’s priorities"
 	}
 	if m.section == "o2o" {
-		date = "One to one topics • collected any day, open until addressed"
+		date = m.o2oHeading()
 	}
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n add topic · arrows select · Enter reads open topics\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
+		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n topic · s start meeting · m meetings · Enter reads\nMeeting: a addressed · w notes · r agreement · f follow-up · c close\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
 
 	} else if m.isDetailMode() {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()
 	} else if m.section == "daily" && m.mode == "browse" {
 		body = m.dailyBody(w)
+	} else if m.section == "o2o" && m.o2oPane == meetingsPane && m.mode == "browse" {
+		body = m.meetingsBody(w)
 	} else {
 		focus := "[ ] Capture"
 		if m.section == "tasks" {
@@ -464,6 +485,12 @@ func (m model) View() tea.View {
 		}
 		if m.captureKind == "proposal" {
 			focus = "[FOCUS] Personal preparation • source data unchanged"
+		}
+		if capture, ok := meetingCaptures[m.captureKind]; ok {
+			focus = "[ ] " + capture.focus
+			if m.mode == "capture" {
+				focus = "[FOCUS] " + capture.focus
+			}
 		}
 		body = m.style("accent").Render(focus) + "\n" + m.editor.View() + "\n\n"
 		if m.section == "daily" {
@@ -545,8 +572,7 @@ func (m model) View() tea.View {
 				"n New · p Plan · d Done · c Open/Done · o O2O · Tab Today · q Quit")
 		}
 		if m.section == "o2o" {
-			hints = fitHints(w, "n New topic · Enter Read · b Blocker · g Daily · t Today · Tab Tasks · ? Help · q Quit",
-				"n New topic · Enter Read · t Today · Tab Tasks · ? Help · q Quit")
+			hints = m.o2oHints(w)
 		}
 		if m.section == "daily" {
 			hints = "s Share · e Edit · r Prepare · v Saved · b Blocker · t Today · q Quit"
@@ -628,7 +654,11 @@ func (m model) taskRows(tasks []journal.Task, limit, width int, focused bool) st
 		if tasks[i].Completed {
 			state = "[done] "
 		}
-		line := marker + state + ansi.Truncate(strings.ReplaceAll(displayText(tasks[i].Text), "\n", " / "), width-11, "...")
+		if tasks[i].MeetingID != "" {
+			// Follow-ups from an O2O meeting keep their origin visible.
+			state += "O2O: "
+		}
+		line := ansi.Truncate(marker+state+strings.ReplaceAll(displayText(tasks[i].Text), "\n", " / "), width, "...")
 		if focused && i == m.selected {
 			line = m.style("accent").Render(line)
 		}
@@ -641,7 +671,7 @@ func (m model) taskRows(tasks []journal.Task, limit, width int, focused bool) st
 }
 
 func (m model) isDetailMode() bool {
-	return m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" || m.mode == "topic-detail"
+	return m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" || m.mode == "topic-detail" || m.mode == "meeting-detail"
 }
 func (m *model) resetCaptureKind() {
 	m.captureKind = ""

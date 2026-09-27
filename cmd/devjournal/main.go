@@ -79,6 +79,18 @@ func run() error {
 				fmt.Printf("%s  %s  %s\n", topic.ID, topic.Day, topic.Text)
 			}
 			return nil
+		case "meetings":
+			meetings := app.Meetings()
+			if len(meetings) == 0 {
+				fmt.Println("No O2O meetings recorded yet")
+			}
+			for i, meeting := range meetings {
+				if i > 0 {
+					fmt.Println()
+				}
+				fmt.Print(meetingRecordText(meeting))
+			}
+			return nil
 		case "plan", "complete", "unplan":
 			if len(args) != 2 {
 				return fmt.Errorf("use %s TASK_ID", args[0])
@@ -105,7 +117,7 @@ func run() error {
 			}
 			return nil
 		default:
-			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, or no command for the TUI", args[0])
+			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, meetings, or no command for the TUI", args[0])
 		}
 	}
 	if os.Getenv("NO_COLOR") != "" {
