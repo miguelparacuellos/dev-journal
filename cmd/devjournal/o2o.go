@@ -209,7 +209,7 @@ func (m model) o2oHints(width int) string {
 	}
 	if _, open := m.app.CurrentMeeting(); open {
 		return fitHints(width, "a Addressed · w Notes · r Agreement · f Follow-up · v Record · c Close · n Topic · ? Help · q Quit",
-			"a Addressed · w Notes · r Agree · f Follow-up · v Record · c Close")
+			"a Address · w Notes · r Agree · f Follow · v Record · c Close · ? Help")
 	}
 	return fitHints(width, "n New topic · s Start meeting · m Meetings · Enter Read · t Today · Tab Tasks · ? Help · q Quit",
 		"n Topic · s Start meeting · m Meetings · Enter Read · ? Help · q Quit")
@@ -289,7 +289,7 @@ func (m model) topicsBody(width int) string {
 	}
 	action := "Enter reads the complete topic"
 	if open {
-		action = "a marks addressed · v reads the record"
+		action = "a marks addressed · Enter topic · v record"
 	}
 	list += m.style("muted").Render(fmt.Sprintf("%d-%d of %d · %s", start+1, end, len(topics), action))
 	if m.width < wideLayoutWidth {
