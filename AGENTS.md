@@ -2,7 +2,7 @@
 
 Use English for all repository content, including documentation, issues, code identifiers, comments, tests, commit messages, and application UI text.
 
-Before resuming implementation, read `docs/implementation-progress.md` for completed tickets, the current handoff, validation evidence, and the next ticket. Update that tracker when a ticket finishes or work is handed off.
+Before resuming implementation, read `docs/implementation-progress.md` (git-ignored, local only; create it if missing) for completed tickets, the current handoff, validation evidence, and the next ticket. Update that tracker when a ticket finishes or work is handed off.
 
 ## Agent skills
 

@@ -21,3 +21,7 @@ __pycache__/
 
 # Local issue tracker (agent working notes)
 /.scratch/
+
+# Local agent handoff notes
+/docs/implementation-progress.md
+/docs/spec.md
