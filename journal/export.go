@@ -39,10 +39,14 @@ func (j *Journal) ExportMarkdown(path, exportedOn string) error {
 	if err != nil {
 		return err
 	}
-	if target == journalPath || target == journalPath+".lock" {
+	lockPath, err := filepath.Abs(j.lockPath())
+	if err != nil {
+		return err
+	}
+	if target == journalPath || target == lockPath {
 		return errors.New("choose a different file; the export cannot replace the journal")
 	}
-	return writeFile(target, []byte(j.Markdown(exportedOn)))
+	return writeFile(target, ".export-*", []byte(j.Markdown(exportedOn)))
 }
 
 // writeDailyLog writes every dated record grouped by workday, newest first.
@@ -89,13 +93,22 @@ func (j *Journal) writeDailyLog(doc *strings.Builder) {
 				doc.WriteString(listItem(blocker.Text))
 			}
 		}
-		if proposal, saved := j.Daily(day); saved {
-			source := "none; no earlier workday had entries"
-			if recent, _ := j.RecentWork(day); recent != "" {
-				source = recent + ", the latest workday with entries before " + day
+		for _, proposal := range j.data.Prepared {
+			if proposal.Day != day {
+				continue
 			}
-			doc.WriteString("\n#### Daily proposal\n\nSaved personal preparation for the daily. Recent work source: " + source + ".\n\n")
-			doc.WriteString(quote(proposal))
+			source := proposal.Source
+			if source == "" {
+				// Proposals saved before sources were recorded, or with no
+				// earlier workday, fall back to the current reference.
+				source, _ = j.RecentWork(day)
+			}
+			described := "none; no earlier workday had entries"
+			if source != "" {
+				described = source + ", the latest workday with entries when it was saved"
+			}
+			doc.WriteString("\n#### Daily proposal\n\nSaved personal preparation for the daily. Recent work source: " + described + ".\n\n")
+			doc.WriteString(quote(proposal.Text))
 		}
 	}
 }
@@ -142,7 +155,7 @@ func (j *Journal) writeTopics(doc *strings.Builder) {
 		doc.WriteString("None.\n")
 	}
 	for _, topic := range topics {
-		doc.WriteString(listItem(topic.Text + " (collected " + topic.Day + ")"))
+		doc.WriteString(listItem(topicLine(topic)))
 	}
 }
 
@@ -223,13 +236,15 @@ func listItem(text string) string { return "- " + hardBreaks(text, "  ") + "\n" 
 // quote is a Markdown block quote that keeps the text's line breaks.
 func quote(text string) string { return "> " + hardBreaks(text, "> ") + "\n" }
 
-// hardBreaks keeps line breaks inside Markdown text: a line followed by another
-// non-blank line ends with a hard break, and continuation lines start with
-// indent so they stay inside their list item or quote.
+// hardBreaks keeps user text readable inside the document: a line followed by
+// another non-blank line ends with a hard break, continuation lines start with
+// indent so they stay inside their list item or quote, and lines that would
+// otherwise start a heading, quote, fence, rule, or HTML block are escaped.
+// List markers are kept so written lists still read as lists.
 func hardBreaks(text, indent string) string {
 	lines := strings.Split(strings.TrimRight(withoutControls(text), "\n"), "\n")
 	for i := range lines {
-		line := strings.TrimRight(lines[i], " \t")
+		line := escapeBlock(strings.TrimRight(lines[i], " \t"))
 		if line != "" && i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "" {
 			line += "  "
 		}
@@ -242,6 +257,21 @@ func hardBreaks(text, indent string) string {
 		lines[i] = line
 	}
 	return strings.Join(lines, "\n")
+}
+
+// escapeBlock backslash-escapes a line whose start Markdown would read as
+// document structure rather than text.
+func escapeBlock(line string) string {
+	content := strings.TrimLeft(line, " \t")
+	lead := line[:len(line)-len(content)]
+	if content == "" {
+		return line
+	}
+	rule := strings.Trim(content, "-=*_ ") == ""
+	if rule || strings.ContainsRune("#><|", rune(content[0])) || strings.HasPrefix(content, "```") || strings.HasPrefix(content, "~~~") {
+		return lead + "\\" + content
+	}
+	return line
 }
 
 // withoutControls drops terminal control characters so reading the export in a

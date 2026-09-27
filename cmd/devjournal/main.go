@@ -141,10 +141,6 @@ func run() error {
 
 func printTasks(tasks []journal.Task) {
 	for _, task := range tasks {
-		state := "open"
-		if task.Completed {
-			state = "done"
-		}
-		fmt.Printf("%s  [%s] %s\n", task.ID, state, task.Text)
+		fmt.Printf("%s  [%s] %s\n", task.ID, task.State(), task.Text)
 	}
 }

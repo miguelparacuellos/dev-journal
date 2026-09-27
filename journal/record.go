@@ -34,7 +34,7 @@ func (r MeetingRecord) Details() string {
 		}
 		for _, item := range section.items {
 			if item.task != nil {
-				item.text = "[" + taskState(*item.task) + "] " + item.text
+				item.text = "[" + item.task.State() + "] " + item.text
 			}
 			text += "- " + strings.ReplaceAll(item.text, "\n", "\n  ") + "\n"
 		}
@@ -59,7 +59,7 @@ type recordItem struct {
 func (r MeetingRecord) sections() []recordSection {
 	topics := recordSection{title: "Addressed topics"}
 	for _, topic := range r.Addressed {
-		topics.items = append(topics.items, recordItem{text: topic.Text + " (collected " + topic.Day + ")"})
+		topics.items = append(topics.items, recordItem{text: topicLine(topic)})
 	}
 	agreements := recordSection{title: "Agreements"}
 	for _, agreement := range r.Agreements {
@@ -72,10 +72,5 @@ func (r MeetingRecord) sections() []recordSection {
 	return []recordSection{topics, agreements, followUps}
 }
 
-// taskState is the word used for a task's completion state.
-func taskState(task Task) string {
-	if task.Completed {
-		return "done"
-	}
-	return "open"
-}
+// topicLine names a topic with the day it was collected.
+func topicLine(topic Topic) string { return topic.Text + " (collected " + topic.Day + ")" }

@@ -660,10 +660,7 @@ func (m model) taskRows(tasks []journal.Task, limit, width int, focused bool) st
 		if focused && i == m.selected {
 			marker = "> "
 		}
-		state := "[open] "
-		if tasks[i].Completed {
-			state = "[done] "
-		}
+		state := "[" + tasks[i].State() + "] "
 		if tasks[i].MeetingID != "" {
 			// Follow-ups from an O2O meeting keep their origin visible.
 			state += "O2O: "

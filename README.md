@@ -135,12 +135,15 @@ first, with follow-up tasks showing their current completion state.
 `export FILE.md` saves the whole journal as a readable Markdown document,
 replacing an earlier export at that path; `export -` prints it instead. The
 document lists workdays newest first with their entries, today's plan, blockers,
-and saved daily proposal, noting the workday its recent work came from. It then
+and saved daily proposal, noting the workday its recent work came from when it
+was saved. It then
 lists open and completed tasks with their planned dates and O2O origin, the open
 O2O topics, and every meeting with its notes, addressed topics, agreements, and
 follow-up tasks. Tasks show `[ ] Open` or `[x] Done`. Exporting works offline,
 never changes the journal, and refuses to write over the journal file itself;
-an empty journal produces a short document that says so. `--date` sets the
+an empty journal produces a short document that says so. Lines of your text that
+Markdown would read as headings, quotes, rules, or code fences are escaped so
+they cannot break the document's structure; lists you write stay lists. `--date` sets the
 export date printed at the top. The TUI help (**?**) points to this command.
 
 ## Development

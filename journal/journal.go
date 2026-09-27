@@ -29,6 +29,15 @@ type Task struct {
 	Completed bool   `json:"completed"`
 	MeetingID string `json:"meeting_id,omitempty"`
 }
+
+// State is the word for the task's completion state: "open" or "done".
+func (t Task) State() string {
+	if t.Completed {
+		return "done"
+	}
+	return "open"
+}
+
 type PlanSelection struct {
 	Day    string `json:"day"`
 	TaskID string `json:"task_id"`
@@ -37,9 +46,14 @@ type Blocker struct {
 	Day  string `json:"day"`
 	Text string `json:"text"`
 }
+
+// DailyProposal is the saved personal preparation for the daily on Day. Source
+// is the recent-work workday Daily showed when it was saved; it is empty when
+// no earlier workday had entries.
 type DailyProposal struct {
-	Day  string `json:"day"`
-	Text string `json:"text"`
+	Day    string `json:"day"`
+	Text   string `json:"text"`
+	Source string `json:"source,omitempty"`
 }
 
 // Topic is an O2O topic: an item to discuss in a one to one, captured on Day.
@@ -169,7 +183,7 @@ func (j *Journal) change(update func() error) (err error) {
 	if err := os.MkdirAll(filepath.Dir(j.path), 0700); err != nil {
 		return err
 	}
-	lock, err := os.OpenFile(j.path+".lock", os.O_CREATE|os.O_RDWR, 0600)
+	lock, err := os.OpenFile(j.lockPath(), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return err
 	}
@@ -202,13 +216,17 @@ func (j *Journal) change(update func() error) (err error) {
 	if err != nil {
 		return err
 	}
-	return writeFile(j.path, b)
+	return writeFile(j.path, ".journal-*", b)
 }
 
-// writeFile durably replaces path with b: it writes a temporary file in the same
-// directory, syncs it, renames it over path, and syncs the directory.
-func writeFile(path string, b []byte) (err error) {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".journal-*")
+// lockPath is the advisory lock file that serializes writes to the journal.
+func (j *Journal) lockPath() string { return j.path + ".lock" }
+
+// writeFile durably replaces path with b: it writes a temporary file named by
+// the tempPattern in the same directory, syncs it, renames it over path, and
+// syncs the directory.
+func writeFile(path, tempPattern string, b []byte) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), tempPattern)
 	if err != nil {
 		return err
 	}
@@ -426,13 +444,15 @@ func (j *Journal) SaveDaily(day, text string) error {
 		return err
 	}
 	return j.change(func() error {
+		source, _ := j.RecentWork(day)
 		for i := range j.data.Prepared {
 			if j.data.Prepared[i].Day == day {
 				j.data.Prepared[i].Text = text
+				j.data.Prepared[i].Source = source
 				return nil
 			}
 		}
-		j.data.Prepared = append(j.data.Prepared, DailyProposal{Day: day, Text: text})
+		j.data.Prepared = append(j.data.Prepared, DailyProposal{Day: day, Text: text, Source: source})
 		return nil
 	})
 }

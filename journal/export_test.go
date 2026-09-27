@@ -169,10 +169,20 @@ func TestExportLeavesTheStoredJournalUnchanged(t *testing.T) {
 }
 
 func TestExportExplainsMissingSourcesAndMeetingsInProgress(t *testing.T) {
-	app, _ := journal.Open(t.TempDir() + "/journal.json")
-	app.SaveDaily("2026-09-21", "Recent work\n\nToday's plan\n- Start the week")
-	meeting, _ := app.StartMeeting("2026-09-30")
-	app.CreateFollowUpTask(meeting.ID, "Share the \x1b[31mroadmap")
+	app, err := journal.Open(t.TempDir() + "/journal.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SaveDaily("2026-09-21", "Recent work\n\nToday's plan\n- Start the week"); err != nil {
+		t.Fatal(err)
+	}
+	meeting, err := app.StartMeeting("2026-09-30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.CreateFollowUpTask(meeting.ID, "Share the \x1b[31mroadmap"); err != nil {
+		t.Fatal(err)
+	}
 	markdown := app.Markdown("2026-09-30")
 	assertInOrder(t, markdown,
 		"### 2026-09-21", "#### Daily proposal", "Recent work source: none; no earlier workday had entries",
@@ -183,5 +193,49 @@ func TestExportExplainsMissingSourcesAndMeetingsInProgress(t *testing.T) {
 	)
 	if strings.Contains(markdown, "\x1b") {
 		t.Fatal("terminal control characters must not reach the export")
+	}
+}
+
+func TestExportKeepsTheRecentWorkSourceTheProposalWasSavedWith(t *testing.T) {
+	app, _ := journal.Open(t.TempDir() + "/journal.json")
+	if _, err := app.Capture("2026-09-23", "Earlier work"); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SaveDaily("2026-09-25", "Recent work (2026-09-23)\n- Earlier work"); err != nil {
+		t.Fatal(err)
+	}
+	// Work recorded later for an earlier day does not rewrite the saved source.
+	if _, err := app.Capture("2026-09-24", "Backdated work"); err != nil {
+		t.Fatal(err)
+	}
+	markdown := app.Markdown("2026-09-27")
+	assertInOrder(t, markdown, "#### Daily proposal", "Recent work source: 2026-09-23", "> Recent work (2026-09-23)")
+	if strings.Contains(markdown, "Recent work source: 2026-09-24") {
+		t.Fatalf("the export changed the saved source:\n%s", markdown)
+	}
+}
+
+func TestMarkdownLookingTextCannotBreakTheExportStructure(t *testing.T) {
+	app, _ := journal.Open(t.TempDir() + "/journal.json")
+	if _, err := app.Capture("2026-09-25", "# Not a heading\n---\n> not a quote"); err != nil {
+		t.Fatal(err)
+	}
+	meeting, _ := app.StartMeeting("2026-09-30")
+	if err := app.SaveMeetingNotes(meeting.ID, "## Next\n```\nunclosed fence\n  <div>\n- a list stays a list"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.RecordAgreement(meeting.ID, "Agreed after the notes"); err != nil {
+		t.Fatal(err)
+	}
+	markdown := app.Markdown("2026-09-30")
+	assertInOrder(t, markdown,
+		"- \\# Not a heading  \n  \\---  \n  \\> not a quote",
+		"#### Notes", "\\## Next  \n\\```  \nunclosed fence  \n  \\<div>  \n- a list stays a list",
+		"#### Agreements (1)", "- Agreed after the notes",
+	)
+	for _, line := range strings.Split(markdown, "\n") {
+		if strings.HasPrefix(line, "```") || line == "---" || strings.HasPrefix(line, "## Next") {
+			t.Fatalf("user text escaped into document structure: %q\n%s", line, markdown)
+		}
 	}
 }
