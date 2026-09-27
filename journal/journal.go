@@ -20,9 +20,20 @@ type Entry struct {
 	Workday string `json:"workday"`
 	Text    string `json:"text"`
 }
+type Task struct {
+	ID        string `json:"id"`
+	Text      string `json:"text"`
+	Completed bool   `json:"completed"`
+}
+type PlanSelection struct {
+	Day    string `json:"day"`
+	TaskID string `json:"task_id"`
+}
 type Data struct {
-	Version int     `json:"version"`
-	Entries []Entry `json:"entries"`
+	Version int             `json:"version"`
+	Entries []Entry         `json:"entries"`
+	Tasks   []Task          `json:"tasks,omitempty"`
+	Plan    []PlanSelection `json:"plan,omitempty"`
 }
 type Journal struct {
 	path string
@@ -121,6 +132,8 @@ func (j *Journal) change(update func() error) (err error) {
 	}
 	previous := j.data
 	previous.Entries = append([]Entry(nil), j.data.Entries...)
+	previous.Tasks = append([]Task(nil), j.data.Tasks...)
+	previous.Plan = append([]PlanSelection(nil), j.data.Plan...)
 	defer func() {
 		if err != nil {
 			j.data = previous
@@ -157,4 +170,89 @@ func (j *Journal) change(update func() error) (err error) {
 	}
 	defer directory.Close()
 	return directory.Sync()
+}
+
+// Tasks returns both open and completed tasks in capture order.
+func (j *Journal) Tasks() []Task { return append([]Task{}, j.data.Tasks...) }
+func (j *Journal) CreateTask(text string) (Task, error) {
+	if strings.TrimSpace(text) == "" {
+		return Task{}, errors.New("task cannot be empty")
+	}
+	id := make([]byte, 16)
+	if _, err := rand.Read(id); err != nil {
+		return Task{}, err
+	}
+	task := Task{ID: hex.EncodeToString(id), Text: text}
+	err := j.change(func() error { j.data.Tasks = append(j.data.Tasks, task); return nil })
+	return task, err
+}
+
+func (j *Journal) Plan(day string) []Task {
+	result := []Task{}
+	for _, selection := range j.data.Plan {
+		if selection.Day == day {
+			for _, task := range j.data.Tasks {
+				if task.ID == selection.TaskID {
+					result = append(result, task)
+					break
+				}
+			}
+		}
+	}
+	return result
+}
+func (j *Journal) PlanTask(day, id string) error {
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		return errors.New("plan date must be YYYY-MM-DD")
+	}
+	return j.change(func() error {
+		found := false
+		for _, task := range j.data.Tasks {
+			if task.ID == id {
+				if task.Completed {
+					return errors.New("completed tasks cannot be planned")
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("task not found")
+		}
+		for _, selection := range j.data.Plan {
+			if selection.Day == day && selection.TaskID == id {
+				return nil
+			}
+		}
+		j.data.Plan = append(j.data.Plan, PlanSelection{Day: day, TaskID: id})
+		return nil
+	})
+}
+
+func (j *Journal) CompleteTask(id string) error {
+	return j.change(func() error {
+		for i := range j.data.Tasks {
+			if j.data.Tasks[i].ID == id {
+				j.data.Tasks[i].Completed = true
+				return nil
+			}
+		}
+		return errors.New("task not found")
+	})
+}
+
+func (j *Journal) UnplanTask(day, id string) error {
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		return errors.New("plan date must be YYYY-MM-DD")
+	}
+	return j.change(func() error {
+		selections := []PlanSelection{}
+		for _, selection := range j.data.Plan {
+			if selection.Day != day || selection.TaskID != id {
+				selections = append(selections, selection)
+			}
+		}
+		j.data.Plan = selections
+		return nil
+	})
 }

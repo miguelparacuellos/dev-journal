@@ -104,3 +104,90 @@ func TestFailedSaveCanBeRetriedWithoutLosingSavedEntries(t *testing.T) {
 		t.Fatal("retry failed")
 	}
 }
+
+func TestTaskCaptureSurvivesReopeningWithoutWorkday(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	task, err := app.CreateTask("Review deployment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := journal.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tasks := reopened.Tasks()
+	if len(tasks) != 1 || tasks[0].ID != task.ID || tasks[0].Text != "Review deployment" || tasks[0].Completed {
+		t.Fatalf("unexpected tasks: %#v", tasks)
+	}
+	if len(reopened.Workdays()) != 0 {
+		t.Fatal("task created a daily log workday")
+	}
+}
+
+func TestPlanIsDatedPersistentAndDoesNotCompleteOrCarryOver(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	task, _ := app.CreateTask("Review deployment")
+	if err := app.PlanTask("2026-09-27", task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.PlanTask("2026-09-27", task.ID); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	plan := reopened.Plan("2026-09-27")
+	if len(plan) != 1 || plan[0].ID != task.ID || plan[0].Completed {
+		t.Fatalf("planning changed completion or duplicated selection: %#v", plan)
+	}
+	if len(reopened.Entries("2026-09-27")) != 0 {
+		t.Fatal("intention recorded as completed work")
+	}
+	if len(reopened.Plan("2026-09-28")) != 0 || len(reopened.Tasks()) != 1 {
+		t.Fatal("automatic carryover or task lost")
+	}
+	if err := reopened.PlanTask("2026-09-28", task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(reopened.Plan("2026-09-28")) != 1 {
+		t.Fatal("open task cannot be selected again")
+	}
+}
+
+func TestCompletionPersistsAndRejectsInvalidPlanning(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	task, _ := app.CreateTask("Review deployment")
+	app.PlanTask("2026-09-27", task.ID)
+	if err := app.CompleteTask(task.ID); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	if !reopened.Tasks()[0].Completed || !reopened.Plan("2026-09-27")[0].Completed {
+		t.Fatal("completion lost")
+	}
+	for _, err := range []error{reopened.PlanTask("2026-09-28", task.ID), reopened.PlanTask("bad", task.ID), reopened.PlanTask("2026-09-28", "missing"), reopened.CompleteTask("missing")} {
+		if err == nil {
+			t.Fatal("invalid task action accepted")
+		}
+	}
+	if _, err := reopened.CreateTask(" \n"); err == nil {
+		t.Fatal("blank task accepted")
+	}
+	if len(reopened.Plan("2026-09-28")) != 0 {
+		t.Fatal("invalid planning changed data")
+	}
+}
+
+func TestPlanCanBeDeselectedWithoutLosingTaskOrOtherDays(t *testing.T) {
+	app, _ := journal.Open(t.TempDir() + "/journal.json")
+	task, _ := app.CreateTask("Review deployment")
+	app.PlanTask("2026-09-27", task.ID)
+	app.PlanTask("2026-09-28", task.ID)
+	if err := app.UnplanTask("2026-09-27", task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(app.Plan("2026-09-27")) != 0 || len(app.Plan("2026-09-28")) != 1 || app.Tasks()[0].Completed {
+		t.Fatal("deselect changed task or other date")
+	}
+}

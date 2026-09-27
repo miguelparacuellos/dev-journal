@@ -24,6 +24,9 @@ type model struct {
 	editingID               string
 	status                  string
 	help                    bool
+	section                 string
+	planFocus               bool
+	showCompleted           bool
 }
 
 func newModel(app *journal.Journal, day, theme string, ascii bool) model {
@@ -56,7 +59,9 @@ func (m *model) size() {
 func (m *model) entries() []journal.Entry { return m.app.Entries(m.day) }
 func (m *model) save() {
 	var err error
-	if m.editingID != "" {
+	if m.section == "tasks" {
+		_, err = m.app.CreateTask(m.editor.Value())
+	} else if m.editingID != "" {
 		err = m.app.Correct(m.editingID, m.editor.Value())
 	} else {
 		_, err = m.app.Capture(m.today, m.editor.Value())
@@ -70,7 +75,12 @@ func (m *model) save() {
 	m.editingID = ""
 	m.day = m.today
 	m.mode = "capture"
-	m.selected = max(0, len(m.entries())-1)
+	if m.section == "tasks" {
+		m.showCompleted = false
+		m.selected = max(0, len(m.tasks())-1)
+	} else {
+		m.selected = max(0, len(m.entries())-1)
+	}
 }
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -114,7 +124,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editor, cmd = m.editor.Update(msg)
 			return m, cmd
 		}
-		if m.mode == "detail" {
+		if m.mode == "detail" || m.mode == "task-detail" {
 			if key == "esc" {
 				m.mode = "browse"
 				return m, nil
@@ -130,6 +140,84 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preview, cmd = m.preview.Update(msg)
 			return m, cmd
 		}
+		if key == "tab" || key == "t" {
+			if m.editor.Value() != "" {
+				m.status = "Draft retained • n resumes; x discards before changing views"
+				return m, nil
+			}
+			if key == "tab" && m.section != "tasks" {
+				m.section = "tasks"
+				m.editor.Placeholder = "What needs doing?"
+			} else {
+				m.section = ""
+				m.editor.Placeholder = "What moved forward?"
+				m.day = m.today
+			}
+			m.selected = 0
+			m.planFocus = false
+			return m, nil
+		}
+		if m.section == "tasks" || m.planFocus {
+			tasks := m.tasks()
+			if m.planFocus {
+				tasks = m.app.Plan(m.today)
+			}
+			switch key {
+			case "up", "k":
+				m.selected = max(0, m.selected-1)
+				return m, nil
+			case "down", "j":
+				m.selected = min(max(0, len(tasks)-1), m.selected+1)
+				return m, nil
+			case "c":
+				if m.section == "tasks" {
+					m.showCompleted = !m.showCompleted
+					m.selected = 0
+				}
+				return m, nil
+			case "p":
+				if m.planFocus {
+					m.planFocus = false
+					m.selected = 0
+					return m, nil
+				}
+				if len(tasks) > 0 {
+					err := m.app.PlanTask(m.today, tasks[m.selected].ID)
+					m.actionStatus(err, "Selected for today • still open")
+				}
+				return m, nil
+			case "u":
+				if m.planFocus && len(tasks) > 0 {
+					err := m.app.UnplanTask(m.today, tasks[m.selected].ID)
+					m.actionStatus(err, "Removed from today’s plan • task retained")
+					m.selected = max(0, min(m.selected, len(m.app.Plan(m.today))-1))
+				}
+				return m, nil
+			case "d":
+				if len(tasks) > 0 {
+					err := m.app.CompleteTask(tasks[m.selected].ID)
+					m.actionStatus(err, "Completed • safely stored locally")
+					if !m.planFocus {
+						m.selected = max(0, min(m.selected, len(m.tasks())-1))
+					}
+				}
+				return m, nil
+			case "enter":
+				if len(tasks) > 0 {
+					m.mode = "task-detail"
+					m.preview.SetContent(ansi.Hardwrap(displayText(tasks[m.selected].Text), max(20, m.width-8), true))
+					m.preview.GotoTop()
+				}
+				return m, nil
+			case "e", "left", "right", "h", "l":
+				return m, nil
+			}
+		} else if key == "p" {
+			m.day = m.today
+			m.planFocus = true
+			m.selected = 0
+			return m, nil
+		}
 		switch key {
 		case "q", "ctrl+c":
 			if m.editor.Value() != "" {
@@ -140,6 +228,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.help = true
 		case "n":
+			if m.planFocus {
+				m.planFocus = false
+				m.selected = 0
+			}
 			m.mode = "capture"
 			if m.editingID != "" {
 				m.mode = "edit"
@@ -196,7 +288,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.mode = "browse"
 		}
-		if m.mode == "detail" {
+		if m.mode == "detail" || m.mode == "task-detail" {
 			var cmd tea.Cmd
 			m.preview, cmd = m.preview.Update(msg)
 			return m, cmd
@@ -230,7 +322,11 @@ func (m model) View() tea.View {
 		return v
 	}
 	w := m.width - 8
-	title := m.style("title").Render("DEV JOURNAL") + "    " + m.style("accent").Render("Today / Daily log")
+	viewName := "Today / Daily log"
+	if m.section == "tasks" {
+		viewName = "Tasks"
+	}
+	title := m.style("title").Render("DEV JOURNAL") + "    " + m.style("accent").Render(viewName)
 	rule := strings.Repeat("─", w)
 	if m.ascii {
 		rule = strings.Repeat("-", w)
@@ -241,63 +337,99 @@ func (m model) View() tea.View {
 	} else {
 		date = "History  " + m.day
 	}
+	if m.section == "tasks" {
+		date = "Undated actions • deliberately select today’s priorities"
+	}
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture / edit: Enter inserts a line; Ctrl+S saves.\nEsc pauses editing and keeps your draft.\n\nBrowse: n capture/resume · e correct · Enter full entry\nUp/Down or j/k select · Left/Right or h/l workdays\nt Today · ? help · q quit · x discard retained draft\n\nFull entry: PgUp/PgDown scroll · Esc back\n\nNo network. No mandatory hours. Saved only after a durable write.\n\nEsc closes help"
-	} else if m.mode == "detail" {
-		body = "FULL ENTRY · " + m.day + "\n" + m.preview.View()
+		body = "KEYBOARD GUIDE\n\nCapture / edit: Enter inserts a line; Ctrl+S saves.\nEsc pauses editing and keeps your draft.\n\nBrowse: Tab Today/Tasks · n capture/resume · Enter full text\nTasks: p plan for today · d complete · c open/completed\nToday: p focus plan / return to log · d complete · u remove selected plan\ne correct daily log entry\nUp/Down or j/k select · Left/Right or h/l workdays\nt Today · ? help · q quit · x discard retained draft\n\nFull entry: PgUp/PgDown scroll · Esc back\n\nNo network. No mandatory hours. Saved only after a durable write.\n\nEsc closes help"
+	} else if m.mode == "detail" || m.mode == "task-detail" {
+		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()
 	} else {
 		focus := "[ ] Capture"
+		if m.section == "tasks" {
+			focus = "[ ] New task"
+		}
 		if m.mode == "capture" {
 			focus = "[FOCUS] Capture"
+			if m.section == "tasks" {
+				focus = "[FOCUS] New task • no workday assigned"
+			}
 		}
 		if m.mode == "edit" {
 			focus = "[FOCUS] Correct entry · original workday retained"
 		}
 		body = m.style("accent").Render(focus) + "\n" + m.editor.View() + "\n\n"
-		entries := m.entries()
-		logHeader := m.style("title").Render(fmt.Sprintf("DAILY LOG  %d entries", len(entries)))
-		body += logHeader + "\n"
-		if len(entries) == 0 {
-			body += "\nA clear page. Record an outcome, progress, or an event.\n"
+		if m.section == "tasks" {
+			tasks := m.tasks()
+			label := "OPEN TASKS"
+			if m.showCompleted {
+				label = "COMPLETED TASKS"
+			}
+			body += m.style("title").Render(fmt.Sprintf("%s  %d", label, len(tasks))) + "\n"
+			body += m.taskRows(tasks, max(2, m.height-15), w, true)
 		} else {
-			logWidth := w
-			if m.width >= 110 {
-				logWidth = w/2 - 3
+			plan := m.app.Plan(m.today)
+			label := "TODAY'S PLAN • " + m.today + " • intended actions"
+			if m.planFocus {
+				label = "[FOCUS] " + label
 			}
-			available := max(2, m.height-15)
-			start := max(0, m.selected-available/2)
-			end := min(len(entries), start+available)
-			for i := start; i < end; i++ {
-				marker := "  "
-				if i == m.selected {
-					marker = "> "
-				}
-				text := strings.ReplaceAll(displayText(entries[i].Text), "\n", " / ")
-				line := marker + ansi.Truncate(text, logWidth-2, "...")
-				if i == m.selected {
-					line = m.style("accent").Render(line)
-				}
-				body += line + "\n"
+			body += m.style("title").Render(label) + "\n"
+			planRows := 3
+			if m.height < 30 {
+				planRows = 2
 			}
-			body += m.style("muted").Render(fmt.Sprintf("%d-%d of %d · Enter reads the complete entry", start+1, end, len(entries)))
-			if m.width >= 110 {
-				parts := strings.SplitN(body, logHeader, 2)
-				right := m.style("title").Render("SELECTED ENTRY") + "\n" + ansi.Hardwrap(displayText(entries[m.selected].Text), w-logWidth-5, true)
-				rightLines := strings.Split(right, "\n")
-				if len(rightLines) > available+1 {
-					right = strings.Join(rightLines[:available], "\n") + "\n[Enter to read more]"
+			body += m.taskRows(plan, planRows, w, m.planFocus) + "\n"
+			entries := m.entries()
+			logHeader := m.style("title").Render(fmt.Sprintf("DAILY LOG  %d entries", len(entries)))
+			body += logHeader + "\n"
+			if len(entries) == 0 {
+				body += "\nA clear page. Record an outcome, progress, or an event.\n"
+			} else {
+				logWidth := w
+				if m.width >= 110 {
+					logWidth = w/2 - 3
 				}
-				body = parts[0] + lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Width(logWidth+2).Render(logHeader+parts[1]), "  ", lipgloss.NewStyle().Width(w-logWidth-4).Render(right))
+				available := max(1, m.height-23)
+				start := max(0, m.selected-available/2)
+				end := min(len(entries), start+available)
+				for i := start; i < end; i++ {
+					marker := "  "
+					if i == m.selected {
+						marker = "> "
+					}
+					text := strings.ReplaceAll(displayText(entries[i].Text), "\n", " / ")
+					line := marker + ansi.Truncate(text, logWidth-2, "...")
+					if i == m.selected {
+						line = m.style("accent").Render(line)
+					}
+					body += line + "\n"
+				}
+				body += m.style("muted").Render(fmt.Sprintf("%d-%d of %d · Enter reads the complete entry", start+1, end, len(entries)))
+				if m.width >= 110 {
+					parts := strings.SplitN(body, logHeader, 2)
+					right := m.style("title").Render("SELECTED ENTRY") + "\n" + ansi.Hardwrap(displayText(entries[min(m.selected, len(entries)-1)].Text), w-logWidth-5, true)
+					rightLines := strings.Split(right, "\n")
+					if len(rightLines) > available+1 {
+						right = strings.Join(rightLines[:available], "\n") + "\n[Enter to read more]"
+					}
+					body = parts[0] + lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Width(logWidth+2).Render(logHeader+parts[1]), "  ", lipgloss.NewStyle().Width(w-logWidth-4).Render(right))
+				}
 			}
 		}
 	}
 	hints := "Ctrl+S Save · Enter New line · Esc Browse"
 	if m.mode == "browse" {
-		hints = "n Capture · e Correct · Enter Read · arrows Navigate · ? Help · q Quit"
+		hints = "n Capture · e Correct · p Plan · Tab Tasks · ? Help · q Quit"
+		if m.section == "tasks" {
+			hints = "n New · p Plan · d Done · c Open/Done · Tab Today · ? Help · q Quit"
+		}
+		if m.planFocus {
+			hints = "arrows Select · d Complete · u Remove · p Log · Tab Tasks"
+		}
 	}
-	if m.mode == "detail" {
+	if m.mode == "detail" || m.mode == "task-detail" {
 		hints = "PgUp/PgDown Scroll · Esc Back · q Quit"
 	}
 	if m.help {
@@ -322,4 +454,54 @@ func displayText(text string) string {
 		}
 		return r
 	}, text)
+}
+
+func (m model) tasks() []journal.Task {
+	result := []journal.Task{}
+	for _, task := range m.app.Tasks() {
+		if task.Completed == m.showCompleted {
+			result = append(result, task)
+		}
+	}
+	return result
+}
+func (m *model) actionStatus(err error, success string) {
+	if err != nil {
+		m.status = "Not saved: " + err.Error()
+	} else {
+		m.status = success
+	}
+}
+func (m model) taskRows(tasks []journal.Task, limit, width int, focused bool) string {
+	if len(tasks) == 0 {
+		if m.section == "tasks" {
+			return "\nNo tasks here. n captures an action; c switches open/completed.\n"
+		}
+		return "No actions selected. Tab opens Tasks; p selects an open task.\n"
+	}
+	start := 0
+	if focused {
+		start = max(0, m.selected-limit/2)
+	}
+	end := min(len(tasks), start+limit)
+	result := ""
+	for i := start; i < end; i++ {
+		marker := "  "
+		if focused && i == m.selected {
+			marker = "> "
+		}
+		state := "[open] "
+		if tasks[i].Completed {
+			state = "[done] "
+		}
+		line := marker + state + ansi.Truncate(strings.ReplaceAll(displayText(tasks[i].Text), "\n", " / "), width-11, "...")
+		if focused && i == m.selected {
+			line = m.style("accent").Render(line)
+		}
+		result += line + "\n"
+	}
+	if len(tasks) > limit {
+		result += m.style("muted").Render(fmt.Sprintf("%d-%d of %d • arrows select", start+1, end, len(tasks))) + "\n"
+	}
+	return result
 }

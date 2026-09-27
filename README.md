@@ -49,8 +49,30 @@ Use `--theme light`, `--theme dark` (default), or `--theme mono`; a nonempty
 monospace font works without Nerd Fonts. Theme selection is explicit so terminal
 color queries never delay writing.
 
-Only the daily log is implemented in this slice. Daily, Tasks, O2O, and exports
-are separate approved tickets.
+Today includes a dated plan above the daily log. From browsing, **Tab** switches
+between Today and Tasks. In Tasks, **n** captures an undated task, **p** selects
+an open task for today, **d** completes it, and **c** switches open/completed
+lists. **Enter** reads full task text. In Today, **p** focuses the plan; arrows
+select, **d** completes, **u** removes a selection, and **p** returns to the log.
+A retained draft must be saved or discarded before switching views.
+
+Planning never completes a task or creates a daily log entry. Unfinished tasks
+remain open across dates; each new day's plan starts empty. Reopen to refresh
+the current date after midnight. Saved historical plans retain their selections
+and show the task's current completion state. Daily, O2O, and exports remain
+separate approved tickets.
+
+```sh
+./bin/devjournal task "Review deployment"
+./bin/devjournal tasks
+./bin/devjournal plan TASK_ID
+./bin/devjournal planned
+./bin/devjournal unplan TASK_ID
+./bin/devjournal complete TASK_ID
+```
+
+Task IDs are printed on capture and listing. Use `--date YYYY-MM-DD` before a
+planning command to inspect or deliberately select a different day's plan.
 
 ## Development
 
@@ -60,6 +82,7 @@ go vet ./...
 go test ./...
 go build -o bin/devjournal ./cmd/devjournal
 python3 scripts/terminal_qa.py bin/devjournal
+python3 scripts/tasks_qa.py bin/devjournal
 ```
 
 Behavior tests use the public `journal.Journal` interface shared by both UI

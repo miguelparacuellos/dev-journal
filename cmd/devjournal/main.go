@@ -59,13 +59,54 @@ func run() error {
 				fmt.Println("Saved to", *day)
 			}
 			return err
+		case "task":
+			task, e := app.CreateTask(strings.Join(args[1:], " "))
+			if e == nil {
+				fmt.Println("Task saved:", task.ID)
+			}
+			return e
+		case "tasks":
+			for _, task := range app.Tasks() {
+				state := "open"
+				if task.Completed {
+					state = "done"
+				}
+				fmt.Printf("%s  [%s] %s\n", task.ID, state, task.Text)
+			}
+			return nil
+		case "plan", "complete", "unplan":
+			if len(args) != 2 {
+				return fmt.Errorf("use %s TASK_ID", args[0])
+			}
+			switch args[0] {
+			case "plan":
+				err = app.PlanTask(*day, args[1])
+			case "unplan":
+				err = app.UnplanTask(*day, args[1])
+			case "complete":
+				err = app.CompleteTask(args[1])
+			}
+			if err == nil {
+				fmt.Println("Saved:", args[0])
+			}
+			return err
+		case "planned":
+			fmt.Println("Plan for", *day)
+			for _, task := range app.Plan(*day) {
+				state := "open"
+				if task.Completed {
+					state = "done"
+				}
+				fmt.Printf("%s  [%s] %s\n", task.ID, state, task.Text)
+			}
+			return nil
 		case "log":
 			for _, e := range app.Entries(*day) {
 				fmt.Printf("%s  %s\n", e.ID, e.Text)
 			}
 			return nil
 		default:
-			return fmt.Errorf("unknown command %q; use add, log, or no command for the TUI", args[0])
+			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, or no command for the TUI", args[0])
 		}
 	}
 	if os.Getenv("NO_COLOR") != "" {
