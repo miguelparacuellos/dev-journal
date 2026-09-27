@@ -60,7 +60,7 @@ Remaining open items (no implementation ticket is pending):
 
 The project uses Go with Charm v2 (Bubble Tea, Bubbles, Lip Gloss) and local versioned JSON with atomic replacement and advisory write locking. The current implementation targets macOS and Linux. The branch is `main`; no remote has been configured.
 
-A temporary toolchain is available at `/tmp/go/bin/go`, with GOROOT `/tmp/go` and GOPATH `/Users/miguelparacuellos/go`. Temporary paths may disappear between sessions: if missing, install a supported official Go toolchain. Go cache and Git writes required sandbox escalation in this session; commits are explicitly authorized by the user.
+A temporary toolchain is available at `/tmp/go/bin/go`, with GOROOT `/tmp/go` and the default GOPATH (`~/go`). Temporary paths may disappear between sessions: if missing, install a supported official Go toolchain. Go cache and Git writes required sandbox escalation in this session; commits are explicitly authorized by the user.
 
 ```sh
 /tmp/go/bin/go test ./journal -run TestDaily

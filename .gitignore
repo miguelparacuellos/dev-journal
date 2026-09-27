@@ -1,4 +1,20 @@
 /bin/
 /devjournal
 *.test
+*.out
 .DS_Store
+
+# Journal data and backups: never commit real entries
+*.json
+!**/testdata/**/*.json
+
+# Local environment and editor/agent settings
+.env
+.env.*
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.pyc
