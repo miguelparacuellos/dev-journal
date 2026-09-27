@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
-	"time"
 )
 
 // backupFormat marks a file as a Dev Journal backup.
@@ -26,6 +24,9 @@ type backup struct {
 // keeps every record, state, and relationship so Restore can recover the
 // journal. It only reads the journal.
 func (j *Journal) Backup(backedUpOn string) ([]byte, error) {
+	if !isDate(backedUpOn) {
+		return nil, errors.New("backup date must be YYYY-MM-DD")
+	}
 	b, err := json.MarshalIndent(backup{Format: backupFormat, BackedUpOn: backedUpOn, Data: j.data}, "", "  ")
 	if err != nil {
 		return nil, err
@@ -152,6 +153,13 @@ func (b backup) consistent() error {
 		}
 		return nil
 	}
+	// mayName checks an optional meeting reference: empty means none.
+	mayName := func(record, meetingID string) error {
+		if meetingID == "" {
+			return nil
+		}
+		return names(record, "meeting", meetingID)
+	}
 	for _, e := range b.Entries {
 		record := "entry " + e.ID
 		if err := firstError(unique("entry", e.ID), dated(record, e.Workday), written(record, e.Text)); err != nil {
@@ -160,13 +168,8 @@ func (b backup) consistent() error {
 	}
 	for _, t := range b.Tasks {
 		record := "task " + t.ID
-		if err := firstError(unique("task", t.ID), written(record, t.Text)); err != nil {
+		if err := firstError(unique("task", t.ID), written(record, t.Text), mayName(record, t.MeetingID)); err != nil {
 			return err
-		}
-		if t.MeetingID != "" {
-			if err := names(record, "meeting", t.MeetingID); err != nil {
-				return err
-			}
 		}
 	}
 	for _, a := range b.Agreements {
@@ -177,13 +180,8 @@ func (b backup) consistent() error {
 	}
 	for _, t := range b.Topics {
 		record := "topic " + t.ID
-		if err := firstError(unique("topic", t.ID), dated(record, t.Day), written(record, t.Text)); err != nil {
+		if err := firstError(unique("topic", t.ID), dated(record, t.Day), written(record, t.Text), mayName(record, t.AddressedIn)); err != nil {
 			return err
-		}
-		if t.AddressedIn != "" {
-			if err := names(record, "meeting", t.AddressedIn); err != nil {
-				return err
-			}
 		}
 	}
 	selected := map[PlanSelection]bool{}
@@ -220,35 +218,6 @@ func (b backup) consistent() error {
 		}
 	}
 	return nil
-}
-
-func isDate(day string) bool {
-	_, err := time.Parse("2006-01-02", day)
-	return err == nil
-}
-
-// empty reports whether no records of any kind have been stored.
-func (d Data) empty() bool {
-	return len(d.Entries)+len(d.Blockers)+len(d.Prepared)+len(d.Tasks)+len(d.Plan)+len(d.Topics)+len(d.Meetings)+len(d.Agreements) == 0
-}
-
-// outsideJournal returns path as an absolute path, refusing the journal file and
-// its lock file with the given message.
-func (j *Journal) outsideJournal(path, refusal string) (string, error) {
-	target, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	for _, own := range []string{j.path, j.lockPath()} {
-		ownPath, err := filepath.Abs(own)
-		if err != nil {
-			return "", err
-		}
-		if target == ownPath {
-			return "", errors.New("choose a different file; " + refusal)
-		}
-	}
-	return target, nil
 }
 
 // firstError returns the first failed check, so a problem is reported on one line.

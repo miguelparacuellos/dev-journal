@@ -36,6 +36,24 @@ func restoreInto(t *testing.T, backupPath, target string) *journal.Journal {
 	return app
 }
 
+// assertRejected restores backup into a fresh journal and fails unless the
+// restore reports message and leaves nothing restored or saved.
+func assertRejected(t *testing.T, backup, message string) {
+	t.Helper()
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	err := app.Restore([]byte(backup))
+	if err == nil || !strings.Contains(err.Error(), message) {
+		t.Fatalf("got error %v, want one mentioning %q", err, message)
+	}
+	if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("a rejected backup created the journal: %v", statErr)
+	}
+	if !strings.Contains(app.Markdown("2026-09-27"), "The journal is empty") {
+		t.Fatal("a rejected backup changed the session")
+	}
+}
+
 func TestBackupRestoresTheCompleteJournalIntoAnEmptyInstallation(t *testing.T) {
 	directory := t.TempDir()
 	original := representativeJournal(t, directory+"/original.json")
@@ -186,20 +204,7 @@ func TestMalformedOrUnsupportedBackupsAreRejectedWithoutRestoringAnything(t *tes
 		{"unknown field", `{` + valid + `, "resources": []}`, "backup cannot be read"},
 		{"wrong type", `{"format": "devjournal-backup", "version": 1, "entries": {}}`, "backup cannot be read"},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			path := t.TempDir() + "/journal.json"
-			app, _ := journal.Open(path)
-			err := app.Restore([]byte(test.backup))
-			if err == nil || !strings.Contains(err.Error(), test.message) {
-				t.Fatalf("got error %v, want one mentioning %q", err, test.message)
-			}
-			if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
-				t.Fatalf("a rejected backup created the journal: %v", statErr)
-			}
-			if !strings.Contains(app.Markdown("2026-09-27"), "The journal is empty") {
-				t.Fatal("a rejected backup changed the session")
-			}
-		})
+		t.Run(test.name, func(t *testing.T) { assertRejected(t, test.backup, test.message) })
 	}
 }
 
@@ -223,8 +228,8 @@ func TestInconsistentBackupsAreRejectedWithoutRestoringAnything(t *testing.T) {
 		{"missing ID", backup(`"topics": [{"day": "2026-09-03", "text": "Feedback"}]`), "a topic has no ID"},
 		{"two proposals for one day", backup(`"prepared": [{"day": "2026-09-25", "text": "A"}, {"day": "2026-09-25", "text": "B"}]`), "two daily proposals for 2026-09-25"},
 		{"invalid workday", backup(`"entries": [{"id": "e1", "workday": "Monday", "text": "A"}]`), `entry e1 has date "Monday"; dates must be YYYY-MM-DD`},
-		{"invalid plan date", backup(task + `, "plan": [{"day": "25/09", "task_id": "t1"}]`), `plan selection has date "25/09"`},
-		{"invalid blocker date", backup(`"blockers": [{"day": "", "text": "Access"}]`), `blocker has date ""`},
+		{"invalid plan date", backup(task + `, "plan": [{"day": "25/09", "task_id": "t1"}]`), `a plan selection has date "25/09"`},
+		{"invalid blocker date", backup(`"blockers": [{"day": "", "text": "Access"}]`), `a blocker has date ""`},
 		{"invalid proposal source", backup(`"prepared": [{"day": "2026-09-25", "text": "A", "source": "yesterday"}]`), `daily proposal for 2026-09-25 has source "yesterday"`},
 		{"invalid topic date", backup(`"topics": [{"id": "o1", "day": "soon", "text": "Feedback"}]`), `topic o1 has date "soon"`},
 		{"invalid closing date", backup(`"meetings": [{"id": "m1", "day": "2026-09-10", "closed_on": "later"}]`), `meeting m1 has closing date "later"`},
@@ -236,20 +241,7 @@ func TestInconsistentBackupsAreRejectedWithoutRestoringAnything(t *testing.T) {
 		{"blank proposal", backup(`"prepared": [{"day": "2026-09-25", "text": ""}]`), "daily proposal for 2026-09-25 is empty"},
 		{"blank topic", backup(`"topics": [{"id": "o1", "day": "2026-09-03", "text": ""}]`), "topic o1 is empty"},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			path := t.TempDir() + "/journal.json"
-			app, _ := journal.Open(path)
-			err := app.Restore([]byte(test.backup))
-			if err == nil || !strings.Contains(err.Error(), "backup is inconsistent: ") || !strings.Contains(err.Error(), test.message) {
-				t.Fatalf("got error %v, want an inconsistency mentioning %q", err, test.message)
-			}
-			if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
-				t.Fatalf("a rejected backup created the journal: %v", statErr)
-			}
-			if !strings.Contains(app.Markdown("2026-09-27"), "The journal is empty") {
-				t.Fatal("a rejected backup changed the session")
-			}
-		})
+		t.Run(test.name, func(t *testing.T) { assertRejected(t, test.backup, "backup is inconsistent: "+test.message) })
 	}
 }
 
@@ -277,6 +269,10 @@ func TestBackingUpLeavesTheJournalUnchangedAndNeverReplacesIt(t *testing.T) {
 	}
 	if after, _ := os.ReadFile(path); string(after) != string(before) {
 		t.Fatal("backing up changed the stored journal")
+	}
+	// Restore rejects a backup date that is not YYYY-MM-DD, so Backup never writes one.
+	if _, err := app.Backup("27/09/2026"); err == nil || !strings.Contains(err.Error(), "YYYY-MM-DD") {
+		t.Fatalf("an unrestorable backup date was accepted: %v", err)
 	}
 	empty, _ := journal.Open(directory + "/empty/journal.json")
 	if err := empty.ExportBackup(directory+"/empty.json", "2026-09-27"); err != nil {

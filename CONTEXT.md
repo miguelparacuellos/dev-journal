@@ -48,3 +48,8 @@ recorded with that meeting.
 **Follow-up task**:
 A task created during a one to one and associated with that meeting. It is
 planned and completed like any other task.
+
+**Backup**:
+A complete JSON copy of the journal, with every record, state, and relationship,
+that can be restored into an empty journal. Distinct from the Markdown export,
+which is for reading.

@@ -146,7 +146,7 @@ func (j *Journal) Workdays() []string {
 	return days
 }
 func validate(day, text string) error {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return errors.New("workday must be YYYY-MM-DD")
 	}
 	if strings.TrimSpace(text) == "" {
@@ -218,6 +218,36 @@ func (j *Journal) change(update func() error) (err error) {
 		return err
 	}
 	return writeFile(j.path, ".journal-*", b)
+}
+
+// outsideJournal returns path as an absolute path, refusing the journal file and
+// its lock file with the given message.
+func (j *Journal) outsideJournal(path, refusal string) (string, error) {
+	target, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	for _, own := range []string{j.path, j.lockPath()} {
+		ownPath, err := filepath.Abs(own)
+		if err != nil {
+			return "", err
+		}
+		if target == ownPath {
+			return "", errors.New("choose a different file; " + refusal)
+		}
+	}
+	return target, nil
+}
+
+// empty reports whether no records of any kind have been stored.
+func (d Data) empty() bool {
+	return len(d.Entries)+len(d.Blockers)+len(d.Prepared)+len(d.Tasks)+len(d.Plan)+len(d.Topics)+len(d.Meetings)+len(d.Agreements) == 0
+}
+
+// isDate reports whether day is a date written as YYYY-MM-DD.
+func isDate(day string) bool {
+	_, err := time.Parse("2006-01-02", day)
+	return err == nil
 }
 
 // lockPath is the advisory lock file that serializes writes to the journal.
@@ -302,7 +332,7 @@ func (j *Journal) Plan(day string) []Task {
 	return result
 }
 func (j *Journal) PlanTask(day, id string) error {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return errors.New("plan date must be YYYY-MM-DD")
 	}
 	return j.change(func() error {
@@ -342,7 +372,7 @@ func (j *Journal) CompleteTask(id string) error {
 }
 
 func (j *Journal) UnplanTask(day, id string) error {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return errors.New("plan date must be YYYY-MM-DD")
 	}
 	return j.change(func() error {
@@ -394,7 +424,7 @@ func (j *Journal) RecordBlocker(day, text string) error {
 // PrepareDaily copies explicitly selected recent work and current sources into editable text.
 // It never replaces a saved personal preparation.
 func (j *Journal) PrepareDaily(day string, selected []string) (string, error) {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return "", errors.New("daily date must be YYYY-MM-DD")
 	}
 	source, entries := j.RecentWork(day)
@@ -478,7 +508,7 @@ func (j *Journal) Agenda(meetingID string) []Topic {
 
 // AddTopic collects an O2O topic on the given day without starting a meeting.
 func (j *Journal) AddTopic(day, text string) (Topic, error) {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return Topic{}, errors.New("topic date must be YYYY-MM-DD")
 	}
 	if strings.TrimSpace(text) == "" {
@@ -525,7 +555,7 @@ func (j *Journal) record(meeting Meeting) MeetingRecord {
 
 // StartMeeting begins an O2O meeting on day. Only one meeting can be in progress.
 func (j *Journal) StartMeeting(day string) (Meeting, error) {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return Meeting{}, errors.New("meeting date must be YYYY-MM-DD")
 	}
 	id, err := newID()
@@ -620,7 +650,7 @@ func (j *Journal) RecordAgreement(meetingID, text string) (Agreement, error) {
 // CloseMeeting closes the meeting in progress on day. Its notes, addressed topics,
 // agreements, and follow-up tasks are preserved; unaddressed topics stay open.
 func (j *Journal) CloseMeeting(meetingID, day string) error {
-	if _, err := time.Parse("2006-01-02", day); err != nil {
+	if !isDate(day) {
 		return errors.New("closing date must be YYYY-MM-DD")
 	}
 	return j.change(func() error {

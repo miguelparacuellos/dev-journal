@@ -108,11 +108,11 @@ func run() error {
 				return fmt.Errorf("use backup FILE.json, or backup - to print the JSON backup")
 			}
 			if args[1] == "-" {
-				b, e := app.Backup(*day)
-				if e == nil {
-					_, e = os.Stdout.Write(b)
+				var b []byte
+				if b, err = app.Backup(*day); err == nil {
+					_, err = os.Stdout.Write(b)
 				}
-				return e
+				return err
 			}
 			if err = app.ExportBackup(args[1], *day); err == nil {
 				fmt.Println("JSON backup saved to", args[1], "• the journal is unchanged")
