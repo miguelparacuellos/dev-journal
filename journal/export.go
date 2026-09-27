@@ -1,9 +1,7 @@
 package journal
 
 import (
-	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -16,8 +14,7 @@ import (
 func (j *Journal) Markdown(exportedOn string) string {
 	var doc strings.Builder
 	doc.WriteString("# Dev Journal\n\nExported on " + exportedOn + " from the local journal. Dates use YYYY-MM-DD.\n")
-	d := j.data
-	if len(d.Entries)+len(d.Plan)+len(d.Blockers)+len(d.Prepared)+len(d.Tasks)+len(d.Topics)+len(d.Meetings) == 0 {
+	if j.data.empty() {
 		doc.WriteString("\nThe journal is empty: no entries, plans, blockers, daily proposals, tasks, O2O topics, or meetings have been recorded yet.\n")
 		return doc.String()
 	}
@@ -32,20 +29,9 @@ func (j *Journal) Markdown(exportedOn string) string {
 // export there. The stored journal is left unchanged, and it is never used as
 // the destination.
 func (j *Journal) ExportMarkdown(path, exportedOn string) error {
-	target, err := filepath.Abs(path)
+	target, err := j.outsideJournal(path, "the export cannot replace the journal")
 	if err != nil {
 		return err
-	}
-	journalPath, err := filepath.Abs(j.path)
-	if err != nil {
-		return err
-	}
-	lockPath, err := filepath.Abs(j.lockPath())
-	if err != nil {
-		return err
-	}
-	if target == journalPath || target == lockPath {
-		return errors.New("choose a different file; the export cannot replace the journal")
 	}
 	return writeFile(target, ".export-*", []byte(j.Markdown(exportedOn)))
 }

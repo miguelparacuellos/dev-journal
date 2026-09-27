@@ -103,6 +103,38 @@ func run() error {
 				fmt.Println("Markdown export saved to", args[1], "• the journal is unchanged")
 			}
 			return err
+		case "backup":
+			if len(args) != 2 {
+				return fmt.Errorf("use backup FILE.json, or backup - to print the JSON backup")
+			}
+			if args[1] == "-" {
+				b, e := app.Backup(*day)
+				if e == nil {
+					_, e = os.Stdout.Write(b)
+				}
+				return e
+			}
+			if err = app.ExportBackup(args[1], *day); err == nil {
+				fmt.Println("JSON backup saved to", args[1], "• the journal is unchanged")
+			}
+			return err
+		case "restore":
+			if len(args) != 2 {
+				return fmt.Errorf("use restore FILE.json, or restore - to read the backup from standard input")
+			}
+			var b []byte
+			if args[1] == "-" {
+				b, err = io.ReadAll(os.Stdin)
+			} else {
+				b, err = os.ReadFile(args[1])
+			}
+			if err != nil {
+				return fmt.Errorf("backup cannot be read: %w", err)
+			}
+			if err = app.Restore(b); err == nil {
+				fmt.Println("Journal restored into", *path)
+			}
+			return err
 		case "plan", "complete", "unplan":
 			if len(args) != 2 {
 				return fmt.Errorf("use %s TASK_ID", args[0])
@@ -129,7 +161,7 @@ func run() error {
 			}
 			return nil
 		default:
-			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, meetings, export, or no command for the TUI", args[0])
+			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, meetings, export, backup, restore, or no command for the TUI", args[0])
 		}
 	}
 	if os.Getenv("NO_COLOR") != "" {

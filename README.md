@@ -146,6 +146,34 @@ Markdown would read as headings, quotes, rules, or code fences are escaped so
 they cannot break the document's structure; lists you write stay lists. `--date` sets the
 export date printed at the top. The TUI help (**?**) points to this command.
 
+## JSON backup and restore
+
+```sh
+./bin/devjournal backup journal-backup.json
+./bin/devjournal --data ~/restored/journal.json restore journal-backup.json
+./bin/devjournal backup - | ./bin/devjournal --data /tmp/copy.json restore -
+```
+
+`backup FILE.json` saves the complete journal as a JSON backup, replacing an
+earlier backup at that path; `backup -` prints it instead. The backup keeps
+every entry, plan, blocker, daily proposal (with the recent-work source it was
+saved with, or its absence), task and completion state, O2O topic, meeting,
+note, agreement, and follow-up task, together with the IDs that relate them.
+Backing up works offline, never changes the journal, and refuses to write over
+the journal file itself. `--date` sets the backup date recorded in the file.
+
+`restore FILE.json` (or `restore -` for standard input) restores a backup into
+the journal chosen by `--data`, which must be empty: a new file, or one with no
+records. A journal that already has records is never overwritten or merged;
+restore into a new `--data` file instead, or move the current journal aside
+after backing it up. Before anything is saved, the whole backup is checked:
+malformed JSON, files that are not Dev Journal backups, unsupported versions,
+unknown fields, invalid dates, empty text, duplicate IDs, references to missing
+meetings or tasks, and more than one meeting in progress are reported as clear
+errors, and the journal is left exactly as it was. A restored journal behaves
+like the original, including historical daily preparation, a meeting still in
+progress, and O2O follow-up tasks. The TUI help (**?**) names both commands.
+
 ## Development
 
 ```sh
@@ -158,6 +186,7 @@ python3 scripts/tasks_qa.py bin/devjournal
 python3 scripts/daily_qa.py bin/devjournal
 python3 scripts/o2o_qa.py bin/devjournal
 python3 scripts/export_qa.py bin/devjournal
+python3 scripts/backup_qa.py bin/devjournal
 ```
 
 Behavior tests use the public `journal.Journal` interface shared by both UI
