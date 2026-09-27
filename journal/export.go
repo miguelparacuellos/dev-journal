@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -97,15 +98,16 @@ func (j *Journal) writeDailyLog(doc *strings.Builder) {
 			if proposal.Day != day {
 				continue
 			}
-			source := proposal.Source
-			if source == "" {
-				// Proposals saved before sources were recorded, or with no
-				// earlier workday, fall back to the current reference.
-				source, _ = j.RecentWork(day)
-			}
 			described := "none; no earlier workday had entries"
-			if source != "" {
-				described = source + ", the latest workday with entries when it was saved"
+			if proposal.Source == nil {
+				// Proposals saved before sources were recorded only have the
+				// current reference.
+				described = "not recorded with this proposal; no earlier workday has entries now"
+				if current, _ := j.RecentWork(day); current != "" {
+					described = "not recorded with this proposal; currently " + current + ", the latest workday with entries before " + day
+				}
+			} else if *proposal.Source != "" {
+				described = *proposal.Source + ", the latest workday with entries when it was saved"
 			}
 			doc.WriteString("\n#### Daily proposal\n\nSaved personal preparation for the daily. Recent work source: " + described + ".\n\n")
 			doc.WriteString(quote(proposal.Text))
@@ -267,12 +269,26 @@ func escapeBlock(line string) string {
 	if content == "" {
 		return line
 	}
+	if marker := listMarker(content); marker != "" {
+		return lead + marker + escapeBlock(content[len(marker):])
+	}
 	rule := strings.Trim(content, "-=*_ ") == ""
 	if rule || strings.ContainsRune("#><|", rune(content[0])) || strings.HasPrefix(content, "```") || strings.HasPrefix(content, "~~~") {
 		return lead + "\\" + content
 	}
 	return line
 }
+
+// listMarker returns the bullet or ordered-list marker, with its following
+// space, that starts content, or "" when content is not a list item.
+func listMarker(content string) string {
+	if match := listMarkerPattern.FindString(content); match != "" && len(match) < len(content) {
+		return match
+	}
+	return ""
+}
+
+var listMarkerPattern = regexp.MustCompile(`^(?:[-*+]|[0-9]{1,9}[.)])[ \t]+`)
 
 // withoutControls drops terminal control characters so reading the export in a
 // terminal cannot run escape sequences.

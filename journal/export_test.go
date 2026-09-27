@@ -217,7 +217,7 @@ func TestExportKeepsTheRecentWorkSourceTheProposalWasSavedWith(t *testing.T) {
 
 func TestMarkdownLookingTextCannotBreakTheExportStructure(t *testing.T) {
 	app, _ := journal.Open(t.TempDir() + "/journal.json")
-	if _, err := app.Capture("2026-09-25", "# Not a heading\n---\n> not a quote"); err != nil {
+	if _, err := app.Capture("2026-09-25", "# Not a heading\n---\n> not a quote\n- # item\n12. ```"); err != nil {
 		t.Fatal(err)
 	}
 	meeting, _ := app.StartMeeting("2026-09-30")
@@ -229,7 +229,7 @@ func TestMarkdownLookingTextCannotBreakTheExportStructure(t *testing.T) {
 	}
 	markdown := app.Markdown("2026-09-30")
 	assertInOrder(t, markdown,
-		"- \\# Not a heading  \n  \\---  \n  \\> not a quote",
+		"- \\# Not a heading  \n  \\---  \n  \\> not a quote  \n  - \\# item  \n  12. \\```",
 		"#### Notes", "\\## Next  \n\\```  \nunclosed fence  \n  \\<div>  \n- a list stays a list",
 		"#### Agreements (1)", "- Agreed after the notes",
 	)
@@ -238,4 +238,31 @@ func TestMarkdownLookingTextCannotBreakTheExportStructure(t *testing.T) {
 			t.Fatalf("user text escaped into document structure: %q\n%s", line, markdown)
 		}
 	}
+}
+
+func TestExportSaysWhenAProposalSourceWasNotRecorded(t *testing.T) {
+	directory := t.TempDir()
+	path := directory + "/journal.json"
+	// A proposal saved before sources were recorded has no source field.
+	legacy := `{"version": 1, "entries": [{"id": "e1", "workday": "2026-09-24", "text": "Work"}],
+		"prepared": [{"day": "2026-09-25", "text": "Recent work (2026-09-24)"}]}`
+	if err := os.WriteFile(path, []byte(legacy), 0600); err != nil {
+		t.Fatal(err)
+	}
+	app, err := journal.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SaveDaily("2026-09-21", "Nothing earlier"); err != nil {
+		t.Fatal(err)
+	}
+	// An entry backdated after saving does not turn a recorded "none" into a date.
+	if _, err := app.Capture("2026-09-20", "Backdated"); err != nil {
+		t.Fatal(err)
+	}
+	markdown := app.Markdown("2026-09-27")
+	assertInOrder(t, markdown,
+		"### 2026-09-25", "Recent work source: not recorded with this proposal; currently 2026-09-24",
+		"### 2026-09-21", "Recent work source: none; no earlier workday had entries",
+	)
 }

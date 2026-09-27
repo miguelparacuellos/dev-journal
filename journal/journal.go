@@ -48,12 +48,13 @@ type Blocker struct {
 }
 
 // DailyProposal is the saved personal preparation for the daily on Day. Source
-// is the recent-work workday Daily showed when it was saved; it is empty when
-// no earlier workday had entries.
+// is the recent-work workday Daily showed when it was saved, empty when no
+// earlier workday had entries, and nil for proposals saved before sources were
+// recorded.
 type DailyProposal struct {
-	Day    string `json:"day"`
-	Text   string `json:"text"`
-	Source string `json:"source,omitempty"`
+	Day    string  `json:"day"`
+	Text   string  `json:"text"`
+	Source *string `json:"source,omitempty"`
 }
 
 // Topic is an O2O topic: an item to discuss in a one to one, captured on Day.
@@ -448,11 +449,11 @@ func (j *Journal) SaveDaily(day, text string) error {
 		for i := range j.data.Prepared {
 			if j.data.Prepared[i].Day == day {
 				j.data.Prepared[i].Text = text
-				j.data.Prepared[i].Source = source
+				j.data.Prepared[i].Source = &source
 				return nil
 			}
 		}
-		j.data.Prepared = append(j.data.Prepared, DailyProposal{Day: day, Text: text, Source: source})
+		j.data.Prepared = append(j.data.Prepared, DailyProposal{Day: day, Text: text, Source: &source})
 		return nil
 	})
 }
