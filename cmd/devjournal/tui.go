@@ -9,8 +9,8 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"devjournal/journal"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/miguelparacuellos/dev-journal/journal"
 )
 
 // wideLayoutWidth is the terminal width at which lists gain a selected-item preview.

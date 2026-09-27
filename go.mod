@@ -1,4 +1,4 @@
-module devjournal
+module github.com/miguelparacuellos/dev-journal
 
 go 1.27.1
 

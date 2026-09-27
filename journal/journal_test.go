@@ -1,7 +1,7 @@
 package journal_test
 
 import (
-	"devjournal/journal"
+	"github.com/miguelparacuellos/dev-journal/journal"
 	"os"
 	"testing"
 )

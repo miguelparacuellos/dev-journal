@@ -10,7 +10,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"devjournal/journal"
+	"github.com/miguelparacuellos/dev-journal/journal"
 )
 
 func main() {

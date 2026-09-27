@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"devjournal/journal"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/miguelparacuellos/dev-journal/journal"
 )
 
 const topicPlaceholder = "What do you want to raise with your tech lead?"

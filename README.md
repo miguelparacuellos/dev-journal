@@ -11,6 +11,12 @@ go build -o bin/devjournal ./cmd/devjournal
 ./bin/devjournal
 ```
 
+Or install it onto your `PATH`:
+
+```sh
+go install github.com/miguelparacuellos/dev-journal/cmd/devjournal@latest
+```
+
 The TUI opens directly in Today with the composer focused. Type immediately,
 use Enter for line breaks, then **Ctrl+S** to save. **Esc** pauses capture and
 retains the draft; **q** quits from browsing when no draft remains.
@@ -199,3 +205,7 @@ Storage uses versioned JSON with atomic replacement, file syncing, and an
 advisory lock for concurrent writes. Unsupported versions and malformed files
 fail visibly instead of resetting data. Locking currently targets macOS and
 Linux; Windows packaging is not supported in this slice.
+
+## License
+
+[MIT](LICENSE)

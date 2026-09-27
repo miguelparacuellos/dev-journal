@@ -1,8 +1,8 @@
 package journal_test
 
 import (
-	"devjournal/journal"
 	"errors"
+	"github.com/miguelparacuellos/dev-journal/journal"
 	"os"
 	"strings"
 	"testing"
