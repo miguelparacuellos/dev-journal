@@ -92,7 +92,7 @@ func (m *model) save() {
 	}
 	m.status = "Saved • safely stored locally"
 	kind := m.captureKind
-	m.captureKind = ""
+	m.resetCaptureKind()
 	m.editor.Reset()
 	m.editingID = ""
 	m.day = m.today
@@ -138,6 +138,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save()
 				return m, nil
 			case "esc":
+				if m.editor.Value() == "" {
+					m.resetCaptureKind()
+				}
 				m.editor.Blur()
 				m.mode = "browse"
 				m.status = "Draft retained • n resumes capture"
@@ -153,7 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editor, cmd = m.editor.Update(msg)
 			return m, cmd
 		}
-		if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
+		if m.isDetailMode() {
 			if key == "esc" {
 				m.mode = "browse"
 				return m, nil
@@ -182,6 +185,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dailyFocus = 0
 				return m, nil
 			}
+			m.planFocus = false
+			m.selected = 0
 			m.captureKind = "blocker"
 			m.editor.Placeholder = "What needs help?"
 			m.mode = "capture"
@@ -289,7 +294,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.editor.Focus()
 		case "x":
 			m.editor.Reset()
-			m.captureKind = ""
+			m.resetCaptureKind()
 			m.editingID = ""
 			m.status = "Draft discarded"
 		case "t":
@@ -339,7 +344,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.mode = "browse"
 		}
-		if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
+		if m.isDetailMode() {
 			var cmd tea.Cmd
 			m.preview, cmd = m.preview.Update(msg)
 			return m, cmd
@@ -399,7 +404,7 @@ func (m model) View() tea.View {
 	if m.help {
 		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
 
-	} else if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
+	} else if m.isDetailMode() {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()
 	} else if m.section == "daily" && m.mode == "browse" {
 		body = m.dailyBody(w)
@@ -504,7 +509,7 @@ func (m model) View() tea.View {
 			hints = "arrows Select · d Complete · u Remove · p Log · Tab Tasks"
 		}
 	}
-	if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
+	if m.isDetailMode() {
 		hints = "PgUp/PgDown Scroll · Esc Back · q Quit"
 	}
 	if m.help {
@@ -579,4 +584,15 @@ func (m model) taskRows(tasks []journal.Task, limit, width int, focused bool) st
 		result += m.style("muted").Render(fmt.Sprintf("%d-%d of %d • arrows select", start+1, end, len(tasks))) + "\n"
 	}
 	return result
+}
+
+func (m model) isDetailMode() bool {
+	return m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail"
+}
+func (m *model) resetCaptureKind() {
+	m.captureKind = ""
+	m.editor.Placeholder = "What moved forward?"
+	if m.section == "tasks" {
+		m.editor.Placeholder = "What needs doing?"
+	}
 }

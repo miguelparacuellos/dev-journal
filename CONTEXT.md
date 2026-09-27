@@ -27,6 +27,11 @@ A note about an outcome, progress, or event during the day; it does not require 
 **Today's plan**:
 The selection of actions intended for the current day, distinct from completed work.
 
+**Blocker**:
+A dated note about an obstacle requiring help or resolution, separate from
+completed progress and intended actions. It belongs to the day on which the
+obstacle was recorded.
+
 **Daily proposal**:
 A draft of what to share in the daily, organized into recent work, today's plan, and blockers.
 

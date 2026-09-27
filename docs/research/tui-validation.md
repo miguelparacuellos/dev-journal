@@ -158,3 +158,22 @@ monochrome ASCII. Real OS PTY checks exercise compact/wide capture, editing,
 selection, safe drafts, reopening, long-content resizing and accumulated sections.
 Native emulator/font/contrast review remains unverified under the existing
 computer-use safety limitation; this is PTY and cell-layout evidence only.
+
+
+Baseline PTY rerun: 30 launches, median 61.28 ms, p95 71.16 ms; save 17.27 ms;
+10,000-entry opening 50.89 ms and save 34.33 ms. Tasks PTY regressions also passed.
+
+### Standards
+
+The blocker glossary definition was missing and detail-mode checks repeated the
+same three-way condition. Added the glossary term and a shared detail predicate.
+No remaining documented standard breach was reported.
+
+### Spec
+
+One P1 fixed: recording a blocker from a focused Today plan could retain a log
+index for subsequent task navigation and panic. Blocker capture now returns
+focus to the log; the actual PTY checks exercise two log entries with a one-task
+plan and reading after the save. An additional draft-state audit fixed an empty
+blocker editor retaining its capture kind after Escape, with a Tasks routing
+regression. Native visual validation remains partial as documented above.
