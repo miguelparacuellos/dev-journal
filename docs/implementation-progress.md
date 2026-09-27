@@ -1,6 +1,6 @@
 # Implementation progress
 
-Last updated: 2026-09-27. This is the durable handoff for resuming after a session or credit interruption. Check `git status` and `git log` before acting. Tickets 01–06 are implemented and reviewed; the next implementation ticket is 07.
+Last updated: 2026-09-27. This is the durable handoff for resuming after a session or credit interruption. Check `git status` and `git log` before acting. All seven tickets are implemented and reviewed; native visual QA remains open.
 
 ## Working agreement
 
@@ -21,62 +21,40 @@ Last updated: 2026-09-27. This is the durable handoff for resuming after a sessi
 | [04 — O2O topics](../.scratch/dev-journal/issues/04-collect-and-review-o2o-topics.md) | Implemented and reviewed | `3aa2880`, `76597b4`; review baseline `387ba08`. Persistent open topics, `topic`/`topics` CLI, O2O view (`o`), `scripts/o2o_qa.py`. |
 | [05 — O2O meetings and actions](../.scratch/dev-journal/issues/05-record-o2o-meetings-and-follow-up-actions.md) | Implemented and reviewed | `66bf651`, `1a48be4`, `8f749f7`; review baseline `c3613f3`. Meetings, addressed topics, agreements, follow-up tasks, history pane (`m`), `meetings` CLI, meeting cycle in `scripts/o2o_qa.py`. |
 | [06 — Markdown export](../.scratch/dev-journal/issues/06-export-the-journal-as-markdown.md) | Implemented and reviewed | `d59d8ee`, `43bc67f`, `391c9c8`, `7661821`; review baseline `ea74da1`. `Journal.Markdown`/`ExportMarkdown`, `export FILE.md` / `export -` CLI, help pointer, `scripts/export_qa.py`. |
-| [07 — JSON backup and restore](../.scratch/dev-journal/issues/07-back-up-and-restore-the-complete-journal.md) | Not started | Unblocked. Next: fresh subagent, current HEAD as review baseline. |
+| [07 — JSON backup and restore](../.scratch/dev-journal/issues/07-back-up-and-restore-the-complete-journal.md) | Implemented and reviewed | `3879956`, `2ea37cb`; review baseline `f10a228`. `Journal.Backup`/`ExportBackup`/`Restore`, `backup`/`restore` CLI (files or pipes), help pointer, `scripts/backup_qa.py`. |
 
-## Exact current handoff: start ticket 07
+## Exact current handoff: all seven tickets implemented
 
-A fresh implementation agent completed ticket 06. `d59d8ee` adds
-`Journal.Markdown(exportedOn)` and `Journal.ExportMarkdown(path, exportedOn)`:
-a readable document with the daily log by workday (entries, today's plan with
-task states, blockers, saved daily proposal with its recent-work source), tasks
-open/completed with planned dates and O2O origin, open O2O topics, and every
-meeting record. Empty journals get a clear one-line document. Export writes
-atomically, never changes the journal, and refuses the journal and lock paths.
-Meeting record rendering moved into the journal package
-(`MeetingRecord.State/Text/Details`, shared sections) and `Task.State` gives the
-open/done word. The CLI has `export FILE.md` and `export -`; the TUI help's last
-line points to it (no TUI key). README and `scripts/export_qa.py` were added or
-updated. `43bc67f`, `391c9c8` and `7661821` fix review findings: user lines that
-Markdown would read as structure are escaped (also after list markers), and
-daily proposals now store the recent-work `source` when saved.
+A fresh implementation agent completed ticket 07, the last ticket. `3879956`
+adds `Journal.Backup(backedUpOn)`, `Journal.ExportBackup(path, backedUpOn)` and
+`Journal.Restore(backup)`. The backup is the version 1 stored journal plus a
+`devjournal-backup` format marker and date; it keeps absent versus `""`
+proposal sources. Restore decodes strictly, validates dates, text, unique IDs,
+every ID reference and at most one meeting in progress before touching
+anything, and only fills an empty journal (a journal with records is refused,
+never merged). The CLI has `backup FILE.json`, `backup -`, `restore FILE.json`
+and `restore -`; the TUI help's last line names them. `2ea37cb` fixes review
+findings (shared helpers in `journal.go`, `isDate` everywhere, backup date
+validation, glossary term **Backup**).
 
-Validation: the full Go suite, vet, gofmt and build passed. The terminal, Tasks,
-Daily, O2O and Export PTY checks passed (startup median 66.07 ms, p95 69.6 ms).
-A temporary render probe kept help within 24 rows and 80 columns at 80x24. The
-Daily check did not flake this time. Review against `ea74da1`: Standards had no
-hard violations (judgement calls fixed); Spec's P1 and P2 findings were fixed
-and the final recheck found no P1 or P2. All six acceptance items are checked.
-Native emulator, font, contrast and Markdown-viewer rendering review remain
-unverified.
+Validation: the full Go suite, vet, gofmt and build passed. Terminal, Tasks,
+Daily, O2O, Export and Backup PTY checks passed (startup median 59.17 ms, p95
+69.05 ms). Review against `f10a228`: Standards had no hard violations
+(judgement calls fixed); Spec had no P1, and its P2 (tracker update) and P3s
+were addressed. All seven acceptance items are checked.
 
-Notes for ticket 07:
+Remaining open items (no implementation ticket is pending):
 
-- Stored data (version 1) now also holds `prepared[].source`, a pointer
-  (`*string`): absent for proposals saved before ticket 06, `""` when no earlier
-  workday had entries, otherwise a workday. A backup and restore must keep the
-  difference between absent and `""` (do not normalize it away).
-- Relationships are by ID only: follow-up task → meeting (`tasks[].meeting_id`),
-  agreement → meeting, addressed topic → meeting (`topics[].addressed_in`), plan
-  selection → task. The Markdown export silently omits dangling references (an
-  addressed topic whose meeting is missing, a plan selection whose task is
-  missing). Restore must validate references rather than trust them, and keep at
-  most one meeting without `closed_on`.
-- `change()` snapshots every slice for rollback; add any new slice there and
-  extend `TestFailedMeetingSavesLeaveTheSessionUnchangedAndCanBeRetried`.
-- `writeFile(path, tempPattern, b)` in `journal/journal.go` is the shared
-  atomic writer (temp file, sync, rename, directory sync); reuse it for a backup
-  file. `ExportMarkdown` shows the path guard against overwriting the journal or
-  its lock file (`lockPath()`).
-- The TUI help still uses 23 of 24 rows at 80x24; its last line now names the
-  Markdown export. Change an existing line (for example, extend that one within
-  72 columns) rather than adding one. Hint lines must fit 72 columns or use
-  `fitHints`.
-- PTY scripts: Bubble Tea redraws only changed cells, so wait for tokens that
-  are emitted whole; consecutive `until` calls cannot match the same frame.
-  `daily_qa.py` has a known intermittent cell-diff flake; rerun it.
-
-Next action: spawn a fresh implementation subagent for ticket 07, using the
-current HEAD as its fixed code-review baseline.
+- Native visual QA: macOS Terminal, the preferred emulator, VS Code terminal,
+  tmux, fonts, contrast on light and dark backgrounds, and screen-reader checks
+  remain unverified. Computer-use of macOS Terminal was rejected; do not claim
+  it.
+- Markdown export rendering in a Markdown viewer was not visually checked.
+- `scripts/daily_qa.py` has a known intermittent cell-diff flake (it passed
+  this time); rerun it when it fails.
+- Triage `Status:` lines in ticket files still read `ready-for-agent`; use the
+  completion comments and this tracker for implementation state.
+- Windows is not supported (advisory locking targets macOS and Linux).
 
 ## Runtime and commands
 
@@ -94,6 +72,7 @@ python3 scripts/tasks_qa.py /tmp/devjournal
 python3 scripts/daily_qa.py /tmp/devjournal
 python3 scripts/o2o_qa.py /tmp/devjournal
 python3 scripts/export_qa.py /tmp/devjournal
+python3 scripts/backup_qa.py /tmp/devjournal
 ```
 
 Use an explicit temporary `--data` path when trying the application to avoid mixing test fixtures with the user's journal. See `README.md` for current commands and shortcuts.

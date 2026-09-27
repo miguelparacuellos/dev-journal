@@ -243,3 +243,15 @@ p95 69.6 ms. The Tasks, Daily and O2O PTY checks also passed. The exported
 Markdown was read raw; its rendering in a Markdown viewer was not visually
 checked. Native emulator, font and contrast review is still unverified.
 
+
+## Ticket 07 — JSON backup and restore
+
+Backup and restore are CLI commands (`backup FILE.json`, `backup -`,
+`restore FILE.json`, `restore -`); the TUI only changes its last help line to
+"Saved locally · devjournal export FILE.md · backup/restore FILE.json". The
+line keeps its 68-column width and no row was added, so the help layout
+measured for ticket 06 is unchanged. `scripts/backup_qa.py` checks the built
+binary, opens the restored journal and reads the help pointer in a real OS PTY
+at 80x24 mono/ASCII. Baseline PTY rerun: 30 launches, median 59.17 ms, p95
+69.05 ms; save 17.74 ms. The Tasks, Daily, O2O and Export PTY checks also
+passed. Native emulator, font and contrast review is still unverified.
