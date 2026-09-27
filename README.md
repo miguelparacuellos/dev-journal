@@ -59,7 +59,7 @@ A retained draft must be saved or discarded before switching views.
 Planning never completes a task or creates a daily log entry. Unfinished tasks
 remain open across dates; each new day's plan starts empty. Reopen to refresh
 the current date after midnight. Saved historical plans retain their selections
-and show the task's current completion state. Daily, O2O, and exports remain
+and show the task's current completion state. O2O and exports remain
 separate approved tickets.
 
 ```sh
@@ -74,6 +74,23 @@ separate approved tickets.
 Task IDs are printed on capture and listing. Use `--date YYYY-MM-DD` before a
 planning command to inspect or deliberately select a different day's plan.
 
+From browsing, **b** records a dated blocker visible in Today and Daily, and
+**g** opens Daily. Daily identifies the latest recorded workday before today,
+even after a weekend or absence; a missing workday has a clear empty state.
+Recent work, today's plan, and blockers have separate sections. **Left/Right**
+selects a section, **Up/Down** selects a row, and **Enter** reads its full text.
+In recent work, **s** toggles progress to share. **e** opens saved personal
+preparation, or prepares selected progress, the plan, and blockers when nothing
+has been saved. Edit freely and **Ctrl+S** saves. **v** reads saved preparation.
+**r** explicitly starts a fresh preparation from the current selection; saving
+it replaces that day's preparation. **t** returns to Today; **Tab** opens Tasks.
+
+Preparation is stored independently for each day and never modifies source
+entries, tasks, or blockers. Saved words stay unchanged when sources change.
+Selections before preparing are session-local; the saved proposal preserves the
+chosen text. Draft protection and resize behavior apply to blockers and proposals.
+There is no generated draft, Linear connection, or automation in this slice.
+
 ## Development
 
 ```sh
@@ -83,6 +100,7 @@ go test ./...
 go build -o bin/devjournal ./cmd/devjournal
 python3 scripts/terminal_qa.py bin/devjournal
 python3 scripts/tasks_qa.py bin/devjournal
+python3 scripts/daily_qa.py bin/devjournal
 ```
 
 Behavior tests use the public `journal.Journal` interface shared by both UI

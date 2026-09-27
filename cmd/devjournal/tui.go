@@ -27,6 +27,10 @@ type model struct {
 	section                 string
 	planFocus               bool
 	showCompleted           bool
+	captureKind             string
+	dailyFocus              int
+	shared                  map[string]bool
+	detailText              string
 }
 
 func newModel(app *journal.Journal, day, theme string, ascii bool) model {
@@ -55,6 +59,9 @@ func (m *model) size() {
 			m.preview.SetContent(ansi.Hardwrap(displayText(entries[m.selected].Text), max(20, m.width-8), true))
 		}
 	}
+	if m.mode == "daily-detail" {
+		m.preview.SetContent(ansi.Hardwrap(displayText(m.detailText), max(20, m.width-8), true))
+	}
 	if m.mode == "task-detail" {
 		tasks := m.tasks()
 		if m.planFocus {
@@ -68,7 +75,11 @@ func (m *model) size() {
 func (m *model) entries() []journal.Entry { return m.app.Entries(m.day) }
 func (m *model) save() {
 	var err error
-	if m.section == "tasks" {
+	if m.captureKind == "blocker" {
+		err = m.app.RecordBlocker(m.today, m.editor.Value())
+	} else if m.captureKind == "proposal" {
+		err = m.app.SaveDaily(m.today, m.editor.Value())
+	} else if m.section == "tasks" {
 		_, err = m.app.CreateTask(m.editor.Value())
 	} else if m.editingID != "" {
 		err = m.app.Correct(m.editingID, m.editor.Value())
@@ -80,15 +91,24 @@ func (m *model) save() {
 		return
 	}
 	m.status = "Saved • safely stored locally"
+	kind := m.captureKind
+	m.captureKind = ""
 	m.editor.Reset()
 	m.editingID = ""
 	m.day = m.today
 	m.mode = "capture"
+	if kind != "" {
+		m.mode = "browse"
+		m.editor.Blur()
+	}
 	if m.section == "tasks" {
 		m.showCompleted = false
 		m.selected = max(0, len(m.tasks())-1)
 	} else {
 		m.selected = max(0, len(m.entries())-1)
+		if m.section == "daily" {
+			m.selected = 0
+		}
 	}
 }
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -133,7 +153,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editor, cmd = m.editor.Update(msg)
 			return m, cmd
 		}
-		if m.mode == "detail" || m.mode == "task-detail" {
+		if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
 			if key == "esc" {
 				m.mode = "browse"
 				return m, nil
@@ -148,6 +168,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.preview, cmd = m.preview.Update(msg)
 			return m, cmd
+		}
+
+		if key == "g" || key == "b" {
+			if m.editor.Value() != "" {
+				m.status = "Draft retained • n resumes; x discards before changing views"
+				return m, nil
+			}
+			if key == "g" {
+				m.section = "daily"
+				m.planFocus = false
+				m.selected = 0
+				m.dailyFocus = 0
+				return m, nil
+			}
+			m.captureKind = "blocker"
+			m.editor.Placeholder = "What needs help?"
+			m.mode = "capture"
+			return m, m.editor.Focus()
+		}
+		if m.section == "daily" && key != "tab" && key != "t" && key != "q" && key != "ctrl+c" && key != "?" && key != "x" {
+			return m.updateDaily(key)
 		}
 		if key == "tab" || key == "t" {
 			if m.editor.Value() != "" {
@@ -248,6 +289,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.editor.Focus()
 		case "x":
 			m.editor.Reset()
+			m.captureKind = ""
 			m.editingID = ""
 			m.status = "Draft discarded"
 		case "t":
@@ -297,7 +339,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.mode = "browse"
 		}
-		if m.mode == "detail" || m.mode == "task-detail" {
+		if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
 			var cmd tea.Cmd
 			m.preview, cmd = m.preview.Update(msg)
 			return m, cmd
@@ -332,6 +374,9 @@ func (m model) View() tea.View {
 	}
 	w := m.width - 8
 	viewName := "Today / Daily log"
+	if m.section == "daily" {
+		viewName = "Daily"
+	}
 	if m.section == "tasks" {
 		viewName = "Tasks"
 	}
@@ -352,10 +397,12 @@ func (m model) View() tea.View {
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
+		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
 
-	} else if m.mode == "detail" || m.mode == "task-detail" {
+	} else if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()
+	} else if m.section == "daily" && m.mode == "browse" {
+		body = m.dailyBody(w)
 	} else {
 		focus := "[ ] Capture"
 		if m.section == "tasks" {
@@ -370,8 +417,16 @@ func (m model) View() tea.View {
 		if m.mode == "edit" {
 			focus = "[FOCUS] Correct entry · original workday retained"
 		}
+		if m.captureKind == "blocker" {
+			focus = "[FOCUS] Record blocker • " + m.today
+		}
+		if m.captureKind == "proposal" {
+			focus = "[FOCUS] Personal preparation • source data unchanged"
+		}
 		body = m.style("accent").Render(focus) + "\n" + m.editor.View() + "\n\n"
-		if m.section == "tasks" {
+		if m.section == "daily" {
+			body += "Ctrl+S saves personal preparation; Esc retains the draft.\n"
+		} else if m.section == "tasks" {
 			tasks := m.tasks()
 			label := "OPEN TASKS"
 			if m.showCompleted {
@@ -393,15 +448,22 @@ func (m model) View() tea.View {
 			body += m.taskRows(plan, planRows, w, m.planFocus) + "\n"
 			entries := m.entries()
 			logHeader := m.style("title").Render(fmt.Sprintf("DAILY LOG  %d entries", len(entries)))
+			body += m.style("title").Render("BLOCKERS • b records • g Daily reads") + "\n"
+			blockers := m.app.Blockers(m.today)
+			text := "None recorded."
+			if len(blockers) > 0 {
+				text = fmt.Sprintf("%d recorded: %s", len(blockers), strings.ReplaceAll(displayText(blockers[len(blockers)-1].Text), "\n", " / "))
+			}
+			body += ansi.Truncate(text, w, "...") + "\n"
 			body += logHeader + "\n"
 			if len(entries) == 0 {
-				body += "\nA clear page. Record an outcome, progress, or an event.\n"
+				body += "A clear page. Record an outcome, progress, or an event.\n"
 			} else {
 				logWidth := w
 				if m.width >= 110 {
 					logWidth = w/2 - 3
 				}
-				available := max(1, m.height-23)
+				available := max(1, m.height-25)
 				start := max(0, m.selected-available/2)
 				end := min(len(entries), start+available)
 				for i := start; i < end; i++ {
@@ -431,15 +493,18 @@ func (m model) View() tea.View {
 	}
 	hints := "Ctrl+S Save · Enter New line · Esc Browse"
 	if m.mode == "browse" {
-		hints = "n Capture · e Correct · p Plan · Tab Tasks · ? Help · q Quit"
+		hints = "n Capture · e Edit · p Plan · b Blocker · g Daily · Tab Tasks · q Quit"
 		if m.section == "tasks" {
 			hints = "n New · p Plan · d Done · c Open/Done · Tab Today · ? Help · q Quit"
+		}
+		if m.section == "daily" {
+			hints = "s Share · e Edit · r Prepare · v Saved · b Blocker · t Today · q Quit"
 		}
 		if m.planFocus {
 			hints = "arrows Select · d Complete · u Remove · p Log · Tab Tasks"
 		}
 	}
-	if m.mode == "detail" || m.mode == "task-detail" {
+	if m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" {
 		hints = "PgUp/PgDown Scroll · Esc Back · q Quit"
 	}
 	if m.help {

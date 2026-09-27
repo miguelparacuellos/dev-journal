@@ -191,3 +191,76 @@ func TestPlanCanBeDeselectedWithoutLosingTaskOrOtherDays(t *testing.T) {
 		t.Fatal("deselect changed task or other date")
 	}
 }
+
+func TestDailyUsesLatestRecordedDayAcrossWeekendsAndAbsences(t *testing.T) {
+	app, _ := journal.Open(t.TempDir() + "/journal.json")
+	if day, entries := app.RecentWork("2026-09-28"); day != "" || len(entries) != 0 {
+		t.Fatal("missing work must be empty")
+	}
+	app.Capture("2026-09-25", "Shipped login")
+	app.Capture("2026-09-28", "Today is not recent work")
+	app.Capture("2026-10-09", "Future work")
+	for _, today := range []string{"2026-09-28", "2026-10-01"} {
+		day, entries := app.RecentWork(today)
+		expected := "2026-09-25"
+		if today == "2026-10-01" {
+			expected = "2026-09-28"
+		}
+		if day != expected || len(entries) != 1 {
+			t.Fatalf("%s: %s %#v", today, day, entries)
+		}
+	}
+}
+
+func TestBlockersPersistSeparatelyFromProgressAndPlan(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	if err := app.RecordBlocker("2026-09-28", "Awaiting access"); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	if got := reopened.Blockers("2026-09-28"); len(got) != 1 || got[0].Text != "Awaiting access" {
+		t.Fatalf("%#v", got)
+	}
+	if len(reopened.Entries("2026-09-28")) != 0 || len(reopened.Workdays()) != 0 || len(reopened.Plan("2026-09-28")) != 0 || len(reopened.Blockers("2026-09-29")) != 0 {
+		t.Fatal("blocker leaked into another concept or day")
+	}
+	if app.RecordBlocker("bad", "text") == nil || app.RecordBlocker("2026-09-28", " ") == nil {
+		t.Fatal("invalid blocker accepted")
+	}
+}
+
+func TestSelectedDailyPreparationCanBeEditedWithoutChangingSources(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	first, _ := app.Capture("2026-09-25", "Shipped login")
+	app.Capture("2026-09-25", "Unshared investigation")
+	task, _ := app.CreateTask("Review deployment")
+	app.PlanTask("2026-09-28", task.ID)
+	app.RecordBlocker("2026-09-28", "Awaiting access")
+	text, err := app.PrepareDaily("2026-09-28", []string{first.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text != "Recent work (2026-09-25)\n- Shipped login\n\nToday's plan\n- Review deployment\n\nBlockers\n- Awaiting access" {
+		t.Fatalf("unexpected preparation: %q", text)
+	}
+	if _, err := app.PrepareDaily("2026-09-28", []string{"missing"}); err == nil {
+		t.Fatal("unrelated progress accepted")
+	}
+	if err := app.SaveDaily("2026-09-28", "Delivered login; asking for access."); err != nil {
+		t.Fatal(err)
+	}
+	app.SaveDaily("2026-09-29", "Next day's update")
+	reopened, _ := journal.Open(path)
+	text, ok := reopened.Daily("2026-09-28")
+	if !ok || text != "Delivered login; asking for access." {
+		t.Fatal("personal preparation lost")
+	}
+	if _, ok := reopened.Daily("2026-09-30"); ok {
+		t.Fatal("proposal carried over")
+	}
+	if reopened.Entries("2026-09-25")[0].Text != "Shipped login" || len(reopened.Entries("2026-09-25")) != 2 || reopened.Tasks()[0].Completed || len(reopened.Plan("2026-09-28")) != 1 || reopened.Blockers("2026-09-28")[0].Text != "Awaiting access" {
+		t.Fatal("source modified")
+	}
+}

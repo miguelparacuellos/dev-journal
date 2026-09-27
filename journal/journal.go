@@ -29,11 +29,21 @@ type PlanSelection struct {
 	Day    string `json:"day"`
 	TaskID string `json:"task_id"`
 }
+type Blocker struct {
+	Day  string `json:"day"`
+	Text string `json:"text"`
+}
+type DailyProposal struct {
+	Day  string `json:"day"`
+	Text string `json:"text"`
+}
 type Data struct {
-	Version int             `json:"version"`
-	Entries []Entry         `json:"entries"`
-	Tasks   []Task          `json:"tasks,omitempty"`
-	Plan    []PlanSelection `json:"plan,omitempty"`
+	Version  int             `json:"version"`
+	Blockers []Blocker       `json:"blockers,omitempty"`
+	Prepared []DailyProposal `json:"prepared,omitempty"`
+	Entries  []Entry         `json:"entries"`
+	Tasks    []Task          `json:"tasks,omitempty"`
+	Plan     []PlanSelection `json:"plan,omitempty"`
 }
 type Journal struct {
 	path string
@@ -131,6 +141,8 @@ func (j *Journal) change(update func() error) (err error) {
 		return err
 	}
 	previous := j.data
+	previous.Prepared = append([]DailyProposal(nil), j.data.Prepared...)
+	previous.Blockers = append([]Blocker(nil), j.data.Blockers...)
 	previous.Entries = append([]Entry(nil), j.data.Entries...)
 	previous.Tasks = append([]Task(nil), j.data.Tasks...)
 	previous.Plan = append([]PlanSelection(nil), j.data.Plan...)
@@ -263,4 +275,95 @@ func newID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(id), nil
+}
+
+// RecentWork returns the latest recorded workday strictly before day.
+func (j *Journal) RecentWork(day string) (string, []Entry) {
+	for _, recorded := range j.Workdays() {
+		if recorded < day {
+			return recorded, j.Entries(recorded)
+		}
+	}
+	return "", []Entry{}
+}
+
+func (j *Journal) Blockers(day string) []Blocker {
+	result := []Blocker{}
+	for _, blocker := range j.data.Blockers {
+		if blocker.Day == day {
+			result = append(result, blocker)
+		}
+	}
+	return result
+}
+func (j *Journal) RecordBlocker(day, text string) error {
+	if err := validate(day, text); err != nil {
+		return err
+	}
+	return j.change(func() error { j.data.Blockers = append(j.data.Blockers, Blocker{Day: day, Text: text}); return nil })
+}
+
+// PrepareDaily copies explicitly selected recent work and current sources into editable text.
+// It never replaces a saved personal preparation.
+func (j *Journal) PrepareDaily(day string, selected []string) (string, error) {
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		return "", errors.New("daily date must be YYYY-MM-DD")
+	}
+	source, entries := j.RecentWork(day)
+	chosen := map[string]bool{}
+	for _, id := range selected {
+		found := false
+		for _, entry := range entries {
+			if entry.ID == id {
+				found = true
+				chosen[id] = true
+				break
+			}
+		}
+		if !found {
+			return "", errors.New("selected progress is not from recent work")
+		}
+	}
+	title := "Recent work"
+	if source != "" {
+		title += " (" + source + ")"
+	}
+	text := title
+	for _, entry := range entries {
+		if chosen[entry.ID] {
+			text += "\n- " + entry.Text
+		}
+	}
+	text += "\n\nToday's plan"
+	for _, task := range j.Plan(day) {
+		text += "\n- " + task.Text
+	}
+	text += "\n\nBlockers"
+	for _, blocker := range j.Blockers(day) {
+		text += "\n- " + blocker.Text
+	}
+	return text, nil
+}
+func (j *Journal) Daily(day string) (string, bool) {
+	for _, proposal := range j.data.Prepared {
+		if proposal.Day == day {
+			return proposal.Text, true
+		}
+	}
+	return "", false
+}
+func (j *Journal) SaveDaily(day, text string) error {
+	if err := validate(day, text); err != nil {
+		return err
+	}
+	return j.change(func() error {
+		for i := range j.data.Prepared {
+			if j.data.Prepared[i].Day == day {
+				j.data.Prepared[i].Text = text
+				return nil
+			}
+		}
+		j.data.Prepared = append(j.data.Prepared, DailyProposal{Day: day, Text: text})
+		return nil
+	})
 }

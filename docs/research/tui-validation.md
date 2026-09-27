@@ -134,3 +134,27 @@ Two P2 findings fixed: task-detail text needed rewrapping on resize, and
 accumulated Tasks needed a smaller compact row budget to retain visible actions.
 Both have actual PTY regression evidence. Help was shortened to fit compact
 screens. No scope creep or normal keyboard-path panic found.
+
+
+## Ticket 03: Daily preparation
+
+Daily extends the existing visual roles with three labelled sections: recent
+work with its actual source date, today's intended actions, and today's blockers.
+Today shows the blocker count and latest blocker above the log. `g` opens Daily;
+`b` captures a blocker. Left/Right changes section and Up/Down changes selection;
+Enter reads full text. `s` selects progress; `e` edits saved preparation (or
+prepares the first selection); `r` explicitly starts fresh from selected sources.
+The saved personal preparation is a dated independent record, never a source
+mutation or a generated draft. `v` reads it in the scrollable full-text view.
+
+Public Journal boundary tests were implemented incrementally with observed
+red/green results for source dates, weekends, absences, future/today exclusion,
+empty recent work, blocker persistence, selected progress copying, personal
+editing, reopening, dated proposals and source preservation. A temporary render
+probe with 12 entries, planned tasks and blockers measured 23 rows for Today,
+Daily, Tasks and complete help at 80x24; the probe was removed after inspection.
+The visible row, section focus, source date and footer remain understandable in
+monochrome ASCII. Real OS PTY checks exercise compact/wide capture, editing,
+selection, safe drafts, reopening, long-content resizing and accumulated sections.
+Native emulator/font/contrast review remains unverified under the existing
+computer-use safety limitation; this is PTY and cell-layout evidence only.
