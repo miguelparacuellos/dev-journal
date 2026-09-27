@@ -264,3 +264,64 @@ func TestSelectedDailyPreparationCanBeEditedWithoutChangingSources(t *testing.T)
 		t.Fatal("source modified")
 	}
 }
+
+func TestO2OTopicsCollectAcrossDaysAndSurviveReopeningWithoutAMeeting(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	if topics := app.OpenTopics(); len(topics) != 0 {
+		t.Fatalf("new journal has topics: %#v", topics)
+	}
+	first, err := app.AddTopic("2026-09-03", "Feedback on the incident review")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := app.AddTopic("2026-09-21", "Proposal: rotate on-call\nwith a written handoff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := journal.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	topics := reopened.OpenTopics()
+	if len(topics) != 2 || topics[0] != first || topics[1] != second {
+		t.Fatalf("unexpected open topics: %#v", topics)
+	}
+	if topics[0].Day != "2026-09-03" || topics[1].Text != "Proposal: rotate on-call\nwith a written handoff" {
+		t.Fatalf("topic lost its capture day or text: %#v", topics)
+	}
+	if len(reopened.Workdays()) != 0 || len(reopened.Tasks()) != 0 || len(reopened.Blockers("2026-09-03")) != 0 {
+		t.Fatal("topic leaked into another concept")
+	}
+}
+
+func TestInvalidTopicsAreRejectedWithoutChangingOpenTopics(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	app.AddTopic("2026-09-03", "Keep me")
+	if _, err := app.AddTopic("2026-09-03", " \n"); err == nil {
+		t.Fatal("blank topic accepted")
+	}
+	if _, err := app.AddTopic("September", "Oops"); err == nil {
+		t.Fatal("invalid topic date accepted")
+	}
+	reopened, _ := journal.Open(path)
+	if topics := reopened.OpenTopics(); len(topics) != 1 || topics[0].Text != "Keep me" {
+		t.Fatalf("saved topics changed: %#v", topics)
+	}
+}
+
+func TestTopicsFromTwoOpenSessionsAreBothKept(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	tui, _ := journal.Open(path)
+	cli, _ := journal.Open(path)
+	if _, err := tui.AddTopic("2026-09-03", "From the TUI"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cli.AddTopic("2026-09-04", "From quick capture"); err != nil {
+		t.Fatal(err)
+	}
+	if topics := cli.OpenTopics(); len(topics) != 2 {
+		t.Fatalf("a concurrent topic was lost: %#v", topics)
+	}
+}

@@ -59,7 +59,7 @@ func (m *model) size() {
 			m.preview.SetContent(ansi.Hardwrap(displayText(entries[m.selected].Text), max(20, m.width-8), true))
 		}
 	}
-	if m.mode == "daily-detail" {
+	if m.mode == "daily-detail" || m.mode == "topic-detail" {
 		m.preview.SetContent(ansi.Hardwrap(displayText(m.detailText), max(20, m.width-8), true))
 	}
 	if m.mode == "task-detail" {
@@ -81,6 +81,8 @@ func (m *model) save() {
 		err = m.app.SaveDaily(m.today, m.editor.Value())
 	} else if m.section == "tasks" {
 		_, err = m.app.CreateTask(m.editor.Value())
+	} else if m.section == "o2o" {
+		_, err = m.app.AddTopic(m.today, m.editor.Value())
 	} else if m.editingID != "" {
 		err = m.app.Correct(m.editingID, m.editor.Value())
 	} else {
@@ -104,6 +106,11 @@ func (m *model) save() {
 	if m.section == "tasks" {
 		m.showCompleted = false
 		m.selected = max(0, len(m.tasks())-1)
+	} else if m.section == "o2o" {
+		m.selected = max(0, len(m.app.OpenTopics())-1)
+		if kind == "" {
+			m.status = "Topic saved • it stays open until addressed"
+		}
 	} else {
 		m.selected = max(0, len(m.entries())-1)
 		if m.section == "daily" {
@@ -173,9 +180,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
-		if key == "g" || key == "b" {
+		if key == "g" || key == "b" || key == "o" {
 			if m.editor.Value() != "" {
 				m.status = "Draft retained • n resumes; x discards before changing views"
+				return m, nil
+			}
+			if key == "o" {
+				m.section = "o2o"
+				m.editor.Placeholder = topicPlaceholder
+				m.day = m.today
+				m.planFocus = false
+				m.selected = 0
 				return m, nil
 			}
 			if key == "g" {
@@ -211,6 +226,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selected = 0
 			m.planFocus = false
 			return m, nil
+		}
+		if m.section == "o2o" {
+			if next, handled := m.updateTopics(key); handled {
+				return next, nil
+			}
 		}
 		if m.section == "tasks" || m.planFocus {
 			tasks := m.tasks()
@@ -385,6 +405,9 @@ func (m model) View() tea.View {
 	if m.section == "tasks" {
 		viewName = "Tasks"
 	}
+	if m.section == "o2o" {
+		viewName = "O2O"
+	}
 	title := m.style("title").Render("DEV JOURNAL") + "    " + m.style("accent").Render(viewName)
 	rule := strings.Repeat("─", w)
 	if m.ascii {
@@ -399,10 +422,13 @@ func (m model) View() tea.View {
 	if m.section == "tasks" {
 		date = "Undated actions • deliberately select today’s priorities"
 	}
+	if m.section == "o2o" {
+		date = "One to one topics • collected any day, open until addressed"
+	}
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
+		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n add topic · arrows select · Enter reads open topics\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
 
 	} else if m.isDetailMode() {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()
@@ -413,10 +439,16 @@ func (m model) View() tea.View {
 		if m.section == "tasks" {
 			focus = "[ ] New task"
 		}
+		if m.section == "o2o" {
+			focus = "[ ] New topic"
+		}
 		if m.mode == "capture" {
 			focus = "[FOCUS] Capture"
 			if m.section == "tasks" {
 				focus = "[FOCUS] New task • no workday assigned"
+			}
+			if m.section == "o2o" {
+				focus = "[FOCUS] New O2O topic • no meeting needed"
 			}
 		}
 		if m.mode == "edit" {
@@ -431,6 +463,8 @@ func (m model) View() tea.View {
 		body = m.style("accent").Render(focus) + "\n" + m.editor.View() + "\n\n"
 		if m.section == "daily" {
 			body += "Ctrl+S saves personal preparation; Esc retains the draft.\n"
+		} else if m.section == "o2o" {
+			body += m.topicsBody(w)
 		} else if m.section == "tasks" {
 			tasks := m.tasks()
 			label := "OPEN TASKS"
@@ -498,9 +532,16 @@ func (m model) View() tea.View {
 	}
 	hints := "Ctrl+S Save · Enter New line · Esc Browse"
 	if m.mode == "browse" {
-		hints = "n Capture · e Edit · p Plan · b Blocker · g Daily · Tab Tasks · q Quit"
+		hints = "n New · e Edit · p Plan · b Blocker · g Daily · o O2O · Tab Tasks · q Quit"
+		if ansi.StringWidth(hints) > w {
+			// The compact layout keeps view navigation visible; ? help lists e Edit.
+			hints = "n New · p Plan · b Blocker · g Daily · o O2O · Tab Tasks · q Quit"
+		}
 		if m.section == "tasks" {
-			hints = "n New · p Plan · d Done · c Open/Done · Tab Today · ? Help · q Quit"
+			hints = "n New · p Plan · d Done · c Open/Done · o O2O · Tab Today · q Quit"
+		}
+		if m.section == "o2o" {
+			hints = "n New topic · Enter Read · t Today · Tab Tasks · ? Help · q Quit"
 		}
 		if m.section == "daily" {
 			hints = "s Share · e Edit · r Prepare · v Saved · b Blocker · t Today · q Quit"
@@ -587,12 +628,15 @@ func (m model) taskRows(tasks []journal.Task, limit, width int, focused bool) st
 }
 
 func (m model) isDetailMode() bool {
-	return m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail"
+	return m.mode == "detail" || m.mode == "task-detail" || m.mode == "daily-detail" || m.mode == "topic-detail"
 }
 func (m *model) resetCaptureKind() {
 	m.captureKind = ""
 	m.editor.Placeholder = "What moved forward?"
 	if m.section == "tasks" {
 		m.editor.Placeholder = "What needs doing?"
+	}
+	if m.section == "o2o" {
+		m.editor.Placeholder = topicPlaceholder
 	}
 }

@@ -34,6 +34,7 @@ No network connection is used by the application.
 | Capture or correction | Ctrl+S saves; Enter inserts a newline; Esc retains the draft and browses |
 | Browsing | n captures/resumes; arrows or j/k select; Enter reads full text; e corrects |
 | Browsing | Left/Right or h/l browse recorded workdays; t returns to Today |
+| Browsing | g opens Daily; o opens O2O; Tab switches Today/Tasks |
 | Browsing | ? opens help; x explicitly discards a retained draft; q quits |
 | Full entry | Up/Down and PgUp/PgDown scroll; Esc returns |
 
@@ -59,7 +60,7 @@ A retained draft must be saved or discarded before switching views.
 Planning never completes a task or creates a daily log entry. Unfinished tasks
 remain open across dates; each new day's plan starts empty. Reopen to refresh
 the current date after midnight. Saved historical plans retain their selections
-and show the task's current completion state. O2O and exports remain
+and show the task's current completion state. O2O meetings and exports remain
 separate approved tickets.
 
 ```sh
@@ -91,6 +92,18 @@ Selections before preparing are session-local; the saved proposal preserves the
 chosen text. Draft protection and resize behavior apply to blockers and proposals.
 There is no generated draft, Linear connection, or automation in this slice.
 
+From browsing, **o** opens O2O. Collect topics for the next one to one whenever
+they come up; no meeting is needed. **n** captures a topic, **Ctrl+S** saves it,
+arrows select, and **Enter** reads its full text. Open topics are listed in
+capture order with the day they were collected, stay open across days and
+restarts, and gain a selected-topic preview at 110 columns or more. Meeting
+notes, addressed topics, and agreements are a separate approved ticket.
+
+```sh
+./bin/devjournal topic "Feedback on the incident review"
+./bin/devjournal topics
+```
+
 ## Development
 
 ```sh
@@ -101,6 +114,7 @@ go build -o bin/devjournal ./cmd/devjournal
 python3 scripts/terminal_qa.py bin/devjournal
 python3 scripts/tasks_qa.py bin/devjournal
 python3 scripts/daily_qa.py bin/devjournal
+python3 scripts/o2o_qa.py bin/devjournal
 ```
 
 Behavior tests use the public `journal.Journal` interface shared by both UI

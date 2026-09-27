@@ -79,17 +79,19 @@ func (m model) updateDaily(key string) (tea.Model, tea.Cmd) {
 			m.status = "No saved personal preparation • s selects progress; e prepares"
 			return m, nil
 		}
-		m.openDailyText(text)
+		m.openText("daily-detail", text)
 	case "enter":
 		if len(texts) > 0 {
-			m.openDailyText(texts[m.selected])
+			m.openText("daily-detail", texts[m.selected])
 		}
 	}
 	return m, nil
 }
-func (m *model) openDailyText(text string) {
+
+// openText shows text in a scrollable full-text mode that survives resizing.
+func (m *model) openText(mode, text string) {
 	m.detailText = text
-	m.mode = "daily-detail"
+	m.mode = mode
 	m.preview.SetContent(ansi.Hardwrap(displayText(text), max(20, m.width-8), true))
 	m.preview.GotoTop()
 }

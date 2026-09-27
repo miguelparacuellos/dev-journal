@@ -68,6 +68,17 @@ func run() error {
 		case "tasks":
 			printTasks(app.Tasks())
 			return nil
+		case "topic":
+			_, e := app.AddTopic(*day, strings.Join(args[1:], " "))
+			if e == nil {
+				fmt.Println("O2O topic saved; it stays open until addressed")
+			}
+			return e
+		case "topics":
+			for _, topic := range app.OpenTopics() {
+				fmt.Printf("%s  %s  %s\n", topic.ID, topic.Day, topic.Text)
+			}
+			return nil
 		case "plan", "complete", "unplan":
 			if len(args) != 2 {
 				return fmt.Errorf("use %s TASK_ID", args[0])
@@ -94,7 +105,7 @@ func run() error {
 			}
 			return nil
 		default:
-			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, or no command for the TUI", args[0])
+			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, or no command for the TUI", args[0])
 		}
 	}
 	if os.Getenv("NO_COLOR") != "" {

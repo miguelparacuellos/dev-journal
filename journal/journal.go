@@ -37,6 +37,13 @@ type DailyProposal struct {
 	Day  string `json:"day"`
 	Text string `json:"text"`
 }
+
+// Topic is an O2O topic: an item to discuss in a one to one, captured on Day.
+type Topic struct {
+	ID   string `json:"id"`
+	Day  string `json:"day"`
+	Text string `json:"text"`
+}
 type Data struct {
 	Version  int             `json:"version"`
 	Blockers []Blocker       `json:"blockers,omitempty"`
@@ -44,6 +51,7 @@ type Data struct {
 	Entries  []Entry         `json:"entries"`
 	Tasks    []Task          `json:"tasks,omitempty"`
 	Plan     []PlanSelection `json:"plan,omitempty"`
+	Topics   []Topic         `json:"topics,omitempty"`
 }
 type Journal struct {
 	path string
@@ -146,6 +154,7 @@ func (j *Journal) change(update func() error) (err error) {
 	previous.Entries = append([]Entry(nil), j.data.Entries...)
 	previous.Tasks = append([]Task(nil), j.data.Tasks...)
 	previous.Plan = append([]PlanSelection(nil), j.data.Plan...)
+	previous.Topics = append([]Topic(nil), j.data.Topics...)
 	defer func() {
 		if err != nil {
 			j.data = previous
@@ -366,4 +375,25 @@ func (j *Journal) SaveDaily(day, text string) error {
 		j.data.Prepared = append(j.data.Prepared, DailyProposal{Day: day, Text: text})
 		return nil
 	})
+}
+
+// OpenTopics returns the O2O topics still waiting to be discussed, in capture order.
+// Topics stay open across days and restarts; no meeting is needed to collect them.
+func (j *Journal) OpenTopics() []Topic { return append([]Topic{}, j.data.Topics...) }
+
+// AddTopic collects an O2O topic on the given day without starting a meeting.
+func (j *Journal) AddTopic(day, text string) (Topic, error) {
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		return Topic{}, errors.New("topic date must be YYYY-MM-DD")
+	}
+	if strings.TrimSpace(text) == "" {
+		return Topic{}, errors.New("topic cannot be empty")
+	}
+	id, err := newID()
+	if err != nil {
+		return Topic{}, err
+	}
+	topic := Topic{ID: id, Day: day, Text: text}
+	err = j.change(func() error { j.data.Topics = append(j.data.Topics, topic); return nil })
+	return topic, err
 }
