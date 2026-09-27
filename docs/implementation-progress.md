@@ -1,6 +1,6 @@
 # Implementation progress
 
-Last updated: 2026-09-27. This is the durable handoff for resuming after a session or credit interruption. Check `git status` and `git log` before acting: a ticket agent may have committed a newer review fix after this snapshot.
+Last updated: 2026-09-27. This is the durable handoff for resuming after a session or credit interruption. Check `git status` and `git log` before acting. Tickets 01–03 are implemented and reviewed; the next implementation ticket is 04.
 
 ## Working agreement
 
@@ -17,13 +17,13 @@ Last updated: 2026-09-27. This is the durable handoff for resuming after a sessi
 | --- | --- | --- |
 | [01 — Daily log](../.scratch/dev-journal/issues/01-capture-and-browse-the-daily-log.md) | Implemented and reviewed; native visual QA pending | `8484f23`, `947cac7`. Working capture, history, correction, CLI, local persistence, compact/wide layouts. |
 | [02 — Tasks and today's plan](../.scratch/dev-journal/issues/02-manage-tasks-and-todays-plan.md) | Implemented and reviewed | `fedc8f6`, `25efd5d`, `06eeb99`. Task capture, dated selection/removal, completion, no automatic carryover. |
-| [03 — Daily proposal](../.scratch/dev-journal/issues/03-prepare-and-save-a-daily-proposal.md) | Implementation committed; review fixes being finalized | Implementation `c179593`; review baseline `06eeb99`. Check latest commits and completion metadata before resuming. |
+| [03 — Daily proposal](../.scratch/dev-journal/issues/03-prepare-and-save-a-daily-proposal.md) | Implemented and reviewed; native visual QA pending | `c179593`, `8dce835`; review baseline `06eeb99`. |
 | [04 — O2O topics](../.scratch/dev-journal/issues/04-collect-and-review-o2o-topics.md) | Not started | Start after ticket 03 is finalized, with a fresh subagent and current HEAD as review baseline. |
 | [05 — O2O meetings and actions](../.scratch/dev-journal/issues/05-record-o2o-meetings-and-follow-up-actions.md) | Not started | Blocked by 02 and 04. |
 | [06 — Markdown export](../.scratch/dev-journal/issues/06-export-the-journal-as-markdown.md) | Not started | Blocked by 03 and 05. |
 | [07 — JSON backup and restore](../.scratch/dev-journal/issues/07-back-up-and-restore-the-complete-journal.md) | Not started | Blocked by 03 and 05. |
 
-## Exact current handoff: ticket 03
+## Exact current handoff: start ticket 04
 
 The fresh agent `implement_ticket_03` implemented blockers, latest recorded workday selection, selectable Daily material, and durable daily preparation independent of original entries, plans, and blockers. TUI, CLI, README, behavior tests, and `scripts/daily_qa.py` are included in `c179593`.
 
@@ -31,11 +31,13 @@ Before review, the full Go suite, vet/build, Daily and Tasks PTY checks, and bas
 
 Two-axis review found:
 
-- Standards: a missing blocker glossary term and duplicated detail-mode predicates; the agent has fixes in progress.
-- Spec: P1 — starting blocker capture while Today plan had focus could reuse a log-derived selection index and panic. The agent cleared plan focus when starting blocker capture and added a PTY regression; a reviewer is checking the fix.
+- Standards: a missing blocker glossary term and duplicated detail-mode predicates; both fixed.
+- Spec: P1 — starting blocker capture while Today plan had focus could reuse a log-derived selection index and panic. The agent cleared plan focus when starting blocker capture and added a PTY regression. The reviewer rechecked the fix and reported no remaining behavioral findings.
 - Native emulator/font/contrast review is not completed; the corresponding acceptance checkbox must stay honest.
 
-At the snapshot, `CONTEXT.md`, `cmd/devjournal/tui.go`, and `scripts/daily_qa.py` contained uncommitted review changes. Do not discard them. Next: inspect the latest agent completion report or commits, finish/recheck that regression if necessary, commit remaining review fixes and completion evidence, then proceed to ticket 04. This tracker will be updated if the agent finishes before the session ends.
+Ticket 03 is finalized in `8dce835`: full Go suite, vet/build, and Daily/Tasks/baseline PTY checks passed. Seven acceptance items are checked; native visual validation remains explicitly partial. The working tree was clean after the ticket completion and tracker updates.
+
+Next action: spawn a fresh implementation subagent for ticket 04, using the current HEAD as its fixed code-review baseline. Read the ticket and existing TUI before adding O2O topic capture and review. Do not restart tickets 01–03. Continue sequentially through 05, 06, and 07, updating this tracker and committing each ticket after review. No ticket 04 implementation agent has been started yet.
 
 ## Runtime and commands
 
