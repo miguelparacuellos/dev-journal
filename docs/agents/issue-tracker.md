@@ -1,6 +1,6 @@
 # Issue tracker: Local Markdown
 
-Issues and specifications live in `.scratch/`.
+Issues and specifications live in `.scratch/`, which is git-ignored and exists only locally.
 
 - One directory per feature: `.scratch/<feature-slug>/`.
 - Specification: `.scratch/<feature-slug>/spec.md`.

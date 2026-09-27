@@ -18,3 +18,6 @@
 # Python
 __pycache__/
 *.pyc
+
+# Local issue tracker (agent working notes)
+/.scratch/
