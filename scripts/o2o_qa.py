@@ -193,6 +193,11 @@ with tempfile.TemporaryDirectory() as directory:
     until(master, b"Agreement recorded")
     os.write(master, b"fDraft the on-call handoff\x13")
     until(master, b"also listed in Tasks")
+    # Reading saved notes with w and leaving them unchanged keeps no draft behind.
+    os.write(master, b"w")
+    until(master, b"Meeting notes")
+    key(master, b"\x1b")
+    until(master, b"Notes unchanged")
     # A retained draft blocks closing so nothing written during the meeting is lost.
     os.write(master, b"rUnfinished agreement")
     until(master, b"O2O agreement")
@@ -207,8 +212,10 @@ with tempfile.TemporaryDirectory() as directory:
     key(master, b"\x1b")
     os.write(master, b"c")
     until(master, b"Close this meeting?")
-    os.write(master, b"j")
-    until(master, b"still in progress")
+    # The cancelling key only cancels: a would otherwise mark the selected topic.
+    os.write(master, b"a")
+    until(master, b"nothing was closed")
+    saved_until(path, lambda d: "addressed_in" not in d["topics"][1] and "closed_on" not in d["meetings"][0])
     os.write(master, b"cc")
     until(master, b"kept for the next one")
     saved = saved_until(path, lambda d: d["meetings"][0].get("closed_on") == "2026-09-30")

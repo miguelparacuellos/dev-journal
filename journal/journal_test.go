@@ -597,3 +597,17 @@ func TestMeetingAgendaListsOpenAndAddressedTopicsInCaptureOrder(t *testing.T) {
 		t.Fatalf("agenda without a meeting must list open topics: %#v", agenda)
 	}
 }
+
+func TestMeetingNotesCanBeClearedWhileTheMeetingIsInProgress(t *testing.T) {
+	path := t.TempDir() + "/journal.json"
+	app, _ := journal.Open(path)
+	meeting, _ := app.StartMeeting("2026-09-30")
+	app.SaveMeetingNotes(meeting.ID, "Draft notes")
+	if err := app.SaveMeetingNotes(meeting.ID, " \n"); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := journal.Open(path)
+	if current, _ := reopened.CurrentMeeting(); current.Meeting.Notes != "" {
+		t.Fatalf("notes not cleared: %q", current.Meeting.Notes)
+	}
+}

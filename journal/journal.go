@@ -516,10 +516,11 @@ func (j *Journal) StartMeeting(day string) (Meeting, error) {
 	return meeting, err
 }
 
-// SaveMeetingNotes replaces the notes of the meeting in progress.
+// SaveMeetingNotes replaces the notes of the meeting in progress. Blank notes
+// clear them.
 func (j *Journal) SaveMeetingNotes(meetingID, notes string) error {
 	if strings.TrimSpace(notes) == "" {
-		return errors.New("meeting notes cannot be empty")
+		notes = ""
 	}
 	return j.change(func() error {
 		meeting, err := j.openMeeting(meetingID)

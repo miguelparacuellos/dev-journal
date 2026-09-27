@@ -116,7 +116,10 @@ func (m *model) save() {
 		m.selected = max(0, len(m.tasks())-1)
 	} else if m.section == "o2o" {
 		topics := len(m.agenda())
-		if capture, ok := meetingCaptures[kind]; ok {
+		if m.o2oPane == meetingsPane {
+			// A blocker saved from the meeting history keeps the meeting selected.
+			m.selected = min(m.selected, max(0, len(m.app.Meetings())-1))
+		} else if capture, ok := meetingCaptures[kind]; ok {
 			// Meeting records leave the topic selection where it was.
 			m.selected = min(m.selected, max(0, topics-1))
 			m.status = capture.saved
@@ -146,7 +149,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		closing := m.confirmClose
 		m.confirmClose = false
 		if closing && key != "c" {
-			m.status = "Meeting still in progress"
+			// The cancelling key only cancels, so it never acts by surprise.
+			m.status = "Meeting still in progress • nothing was closed"
+			return m, nil
 		}
 		if m.help {
 			if key == "esc" || key == "?" {
@@ -166,14 +171,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save()
 				return m, nil
 			case "esc":
-				if m.editor.Value() == "" {
-					// An emptied draft leaves nothing to resume, including a correction.
+				m.status = "Draft retained • n resumes capture"
+				if m.unchangedNotes() {
+					m.status = "Notes unchanged • w opens them again"
+				}
+				if m.editor.Value() == "" || m.unchangedNotes() {
+					// An emptied draft leaves nothing to resume, including a correction;
+					// neither do meeting notes that were only read.
+					m.editor.Reset()
 					m.resetCaptureKind()
 					m.editingID = ""
 				}
 				m.editor.Blur()
 				m.mode = "browse"
-				m.status = "Draft retained • n resumes capture"
 				return m, nil
 			case "ctrl+c":
 				if m.editor.Value() == "" {
@@ -452,7 +462,7 @@ func (m model) View() tea.View {
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n topic · s start meeting · m meetings · Enter reads\nMeeting: a addressed · w notes · r agreement · f follow-up · c close\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
+		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n topic · s start meeting · m meetings · v meeting record\nMeeting: a addressed · w notes · r agreement · f follow-up · c close\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
 
 	} else if m.isDetailMode() {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()

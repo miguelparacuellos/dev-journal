@@ -103,12 +103,13 @@ restarts, and gain a selected-topic preview at 110 columns or more.
 When you meet, **s** starts an O2O meeting. The topic list then shows every open
 topic with its state: **a** marks the selected topic `[addressed]`, and pressing
 it again reopens a topic marked by mistake. **w** writes the meeting notes (it
-reopens the saved notes for editing), **r** records an O2O agreement, and **f**
+reopens the saved notes for editing; saving them blank clears them), **r** records an O2O agreement, and **f**
 creates a follow-up task. Each opens the composer; **Ctrl+S** saves it into the
 meeting. **v** reads the complete meeting record. Follow-up tasks appear in
 Tasks marked `O2O:` and are planned and completed like any other task.
 
-**c** closes the meeting and asks for a second **c** to confirm; a retained
+**c** closes the meeting and asks for a second **c** to confirm (any other
+key only cancels); a retained
 draft must be saved or discarded first. Closing keeps the notes, addressed
 topics, agreements, and follow-up tasks unchanged, and every unaddressed topic
 stays open for the next meeting. Only one meeting is in progress at a time.
