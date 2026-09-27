@@ -62,8 +62,7 @@ A retained draft must be saved or discarded before switching views.
 Planning never completes a task or creates a daily log entry. Unfinished tasks
 remain open across dates; each new day's plan starts empty. Reopen to refresh
 the current date after midnight. Saved historical plans retain their selections
-and show the task's current completion state. Exports remain separate approved
-tickets.
+and show the task's current completion state.
 
 ```sh
 ./bin/devjournal task "Review deployment"
@@ -125,6 +124,24 @@ and the selected past meeting are shown beside the lists.
 
 `topics` lists only open topics. `meetings` prints each meeting record, newest
 first, with follow-up tasks showing their current completion state.
+
+## Markdown export
+
+```sh
+./bin/devjournal export journal.md
+./bin/devjournal export - | less
+```
+
+`export FILE.md` saves the whole journal as a readable Markdown document,
+replacing an earlier export at that path; `export -` prints it instead. The
+document lists workdays newest first with their entries, today's plan, blockers,
+and saved daily proposal, noting the workday its recent work came from. It then
+lists open and completed tasks with their planned dates and O2O origin, the open
+O2O topics, and every meeting with its notes, addressed topics, agreements, and
+follow-up tasks. Tasks show `[ ] Open` or `[x] Done`. Exporting works offline,
+never changes the journal, and refuses to write over the journal file itself;
+an empty journal produces a short document that says so. `--date` sets the
+export date printed at the top. The TUI help (**?**) points to this command.
 
 ## Development
 

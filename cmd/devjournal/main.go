@@ -88,9 +88,21 @@ func run() error {
 				if i > 0 {
 					fmt.Println()
 				}
-				fmt.Print(meetingRecordText(meeting))
+				fmt.Print(meeting.Text())
 			}
 			return nil
+		case "export":
+			if len(args) != 2 {
+				return fmt.Errorf("use export FILE.md, or export - to print the Markdown")
+			}
+			if args[1] == "-" {
+				fmt.Print(app.Markdown(*day))
+				return nil
+			}
+			if err = app.ExportMarkdown(args[1], *day); err == nil {
+				fmt.Println("Markdown export saved to", args[1], "• the journal is unchanged")
+			}
+			return err
 		case "plan", "complete", "unplan":
 			if len(args) != 2 {
 				return fmt.Errorf("use %s TASK_ID", args[0])
@@ -117,7 +129,7 @@ func run() error {
 			}
 			return nil
 		default:
-			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, meetings, or no command for the TUI", args[0])
+			return fmt.Errorf("unknown command %q; use add, log, task, tasks, plan, unplan, planned, complete, topic, topics, meetings, export, or no command for the TUI", args[0])
 		}
 	}
 	if os.Getenv("NO_COLOR") != "" {

@@ -462,7 +462,7 @@ func (m model) View() tea.View {
 	header := title + "\n" + m.style("muted").Render(date) + "\n" + m.style("muted").Render(rule)
 	body := ""
 	if m.help {
-		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n topic · s start meeting · m meetings · v meeting record\nMeeting: a addressed · w notes · r agreement · f follow-up · c close\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after a durable write. Esc closes help."
+		body = "KEYBOARD GUIDE\n\nCapture: Enter new line · Ctrl+S save · Esc retain draft\nBrowse: n capture/resume · x discard draft · q quit\nTab Today/Tasks · g Daily · o O2O · b Blocker · t Today · ? help\n\nTasks: arrows select · p plan · d complete · c open/done\nToday: p focus plan · d complete · u remove · p log\nLog: arrows/j/k select · h/l workdays · e correct\nDaily: arrows sections/rows · s share · e edit · r prepare · v saved\nO2O: n topic · s start meeting · m meetings · v meeting record\nMeeting: a addressed · w notes · r agreement · f follow-up · c close\nEnter reads full text · PgUp/PgDown scroll · Esc back\n\nSaved locally after each write · Markdown: devjournal export FILE.md"
 
 	} else if m.isDetailMode() {
 		body = "FULL TEXT · " + viewName + "\n" + m.preview.View()

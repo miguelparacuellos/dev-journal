@@ -202,7 +202,13 @@ func (j *Journal) change(update func() error) (err error) {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(j.path), ".journal-*")
+	return writeFile(j.path, b)
+}
+
+// writeFile durably replaces path with b: it writes a temporary file in the same
+// directory, syncs it, renames it over path, and syncs the directory.
+func writeFile(path string, b []byte) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".journal-*")
 	if err != nil {
 		return err
 	}
@@ -215,12 +221,12 @@ func (j *Journal) change(update func() error) (err error) {
 		err = closeErr
 	}
 	if err == nil {
-		err = os.Rename(tmp.Name(), j.path)
+		err = os.Rename(tmp.Name(), path)
 	}
 	if err != nil {
 		return err
 	}
-	directory, openErr := os.Open(filepath.Dir(j.path))
+	directory, openErr := os.Open(filepath.Dir(path))
 	if openErr != nil {
 		return openErr
 	}

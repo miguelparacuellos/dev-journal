@@ -153,7 +153,7 @@ func (m model) updateTopics(key string, closing bool) (model, tea.Cmd, bool) {
 			m.status = "No meeting in progress • m browses past meetings"
 			break
 		}
-		m.openText("meeting-detail", meetingRecordText(current))
+		m.openText("meeting-detail", current.Text())
 	case "m":
 		m.o2oPane = meetingsPane
 		m.selected = 0
@@ -173,7 +173,7 @@ func (m model) updateMeetings(key string) (model, tea.Cmd, bool) {
 		m.selected = min(max(0, len(meetings)-1), m.selected+1)
 	case "enter":
 		if len(meetings) > 0 {
-			m.openText("meeting-detail", meetingRecordText(meetings[m.selected]))
+			m.openText("meeting-detail", meetings[m.selected].Text())
 		}
 	case "esc", "m", "s", "n":
 		// These leave the history for the topics; s then starts a meeting and n
@@ -296,7 +296,7 @@ func (m model) topicsBody(width int) string {
 		return list + "\n" + footer
 	}
 	if open {
-		right := m.style("title").Render("MEETING RECORD") + m.style("muted").Render(" • v reads it all") + "\n" + displayText(meetingRecordBody(current))
+		right := m.style("title").Render("MEETING RECORD") + m.style("muted").Render(" • v reads it all") + "\n" + displayText(current.Details())
 		return m.withPreview(list, listWidth, width, available, right, "v")
 	}
 	selected := topics[min(m.selected, len(topics)-1)]
@@ -359,63 +359,15 @@ func (m model) meetingsBody(width int) string {
 	if m.width < wideLayoutWidth {
 		return list
 	}
-	right := m.style("title").Render("SELECTED MEETING") + "\n" + displayText(meetingRecordText(meetings[min(m.selected, len(meetings)-1)]))
+	right := m.style("title").Render("SELECTED MEETING") + "\n" + displayText(meetings[min(m.selected, len(meetings)-1)].Text())
 	return m.withPreview(list, listWidth, width, available, right, "Enter")
-}
-
-// meetingState describes whether a meeting is in progress or when it closed.
-func meetingState(record journal.MeetingRecord) string {
-	if record.Meeting.ClosedOn != "" {
-		return "closed " + record.Meeting.ClosedOn
-	}
-	return "in progress"
 }
 
 // meetingSummaryLine is a one-line description of a meeting for lists.
 func meetingSummaryLine(record journal.MeetingRecord) string {
-	return fmt.Sprintf("%s  %s • %d addressed • %d %s • %d %s", record.Meeting.Day, meetingState(record),
+	return fmt.Sprintf("%s  %s • %d addressed • %d %s • %d %s", record.Meeting.Day, record.State(),
 		len(record.Addressed), len(record.Agreements), plural(len(record.Agreements), "agreement", "agreements"),
 		len(record.FollowUps), plural(len(record.FollowUps), "follow-up", "follow-ups"))
-}
-
-// meetingRecordText renders a complete meeting record for reading and the CLI.
-func meetingRecordText(record journal.MeetingRecord) string {
-	return "O2O MEETING • " + record.Meeting.Day + " • " + meetingState(record) + "\n\n" + meetingRecordBody(record)
-}
-
-// meetingRecordBody renders the notes, addressed topics, agreements, and follow-ups.
-func meetingRecordBody(record journal.MeetingRecord) string {
-	section := func(title string, items []string) string {
-		text := fmt.Sprintf("%s  %d\n", title, len(items))
-		if len(items) == 0 {
-			return text + "None recorded.\n"
-		}
-		for _, item := range items {
-			text += "- " + strings.ReplaceAll(item, "\n", "\n  ") + "\n"
-		}
-		return text
-	}
-	notes := "NOTES\nNone recorded.\n"
-	if record.Meeting.Notes != "" {
-		notes = "NOTES\n" + record.Meeting.Notes + "\n"
-	}
-	topics := []string{}
-	for _, topic := range record.Addressed {
-		topics = append(topics, topic.Text+" (collected "+topic.Day+")")
-	}
-	agreements := []string{}
-	for _, agreement := range record.Agreements {
-		agreements = append(agreements, agreement.Text)
-	}
-	followUps := []string{}
-	for _, task := range record.FollowUps {
-		state := "[open] "
-		if task.Completed {
-			state = "[done] "
-		}
-		followUps = append(followUps, state+task.Text)
-	}
-	return notes + "\n" + section("ADDRESSED TOPICS", topics) + "\n" + section("AGREEMENTS", agreements) + "\n" + section("FOLLOW-UP TASKS", followUps)
 }
 
 // oneLine flattens text for single-line list rows.
