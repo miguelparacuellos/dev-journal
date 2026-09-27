@@ -131,4 +131,23 @@ with tempfile.TemporaryDirectory() as directory:
     assert saved["topics"][1]["text"] == "Proposal: rotate on-call\nwith a written handoff"
     assert saved["entries"] == [] and "tasks" not in saved
     assert [blocker["text"] for blocker in saved["blockers"]] == ["Awaiting access"]
-    print("PASS: O2O empty state, keyboard and quick topic capture, validation, draft safety, review, full text, resize and reopening")
+    # Abandoning an emptied correction must not turn a later topic into an entry correction.
+    cli(path, "add", "Original entry", day="2026-09-29")
+    master, process = launch(path, day="2026-09-29")
+    until(master, b"Ctrl+S")
+    key(master, b"\x1b")
+    os.write(master, b"e")
+    until(master, b"Correct entry")
+    os.write(master, b"\x7f" * len("Original entry"))
+    until(master, b"hat moved forward?")
+    key(master, b"\x1b")
+    os.write(master, b"on")
+    until(master, b"New O2O topic")
+    os.write(master, b"Raised after an abandoned correction\x13")
+    until(master, b"Topic saved")
+    close(master, process)
+    corrected = json.loads(path.read_text())
+    assert [entry["text"] for entry in corrected["entries"]] == ["Original entry"]
+    assert corrected["topics"][-1]["text"] == "Raised after an abandoned correction"
+
+    print("PASS: O2O empty state, keyboard and quick topic capture, validation, draft safety, review, full text, resize, reopening and correction routing")

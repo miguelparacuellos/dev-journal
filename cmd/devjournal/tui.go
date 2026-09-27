@@ -13,6 +13,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// wideLayoutWidth is the terminal width at which lists gain a selected-item preview.
+const wideLayoutWidth = 110
+
 type model struct {
 	app                     *journal.Journal
 	today, day, theme       string
@@ -146,7 +149,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "esc":
 				if m.editor.Value() == "" {
+					// An emptied draft leaves nothing to resume, including a correction.
 					m.resetCaptureKind()
+					m.editingID = ""
 				}
 				m.editor.Blur()
 				m.mode = "browse"
@@ -499,7 +504,7 @@ func (m model) View() tea.View {
 				body += "A clear page. Record an outcome, progress, or an event.\n"
 			} else {
 				logWidth := w
-				if m.width >= 110 {
+				if m.width >= wideLayoutWidth {
 					logWidth = w/2 - 3
 				}
 				available := max(1, m.height-25)
@@ -518,7 +523,7 @@ func (m model) View() tea.View {
 					body += line + "\n"
 				}
 				body += m.style("muted").Render(fmt.Sprintf("%d-%d of %d · Enter reads the complete entry", start+1, end, len(entries)))
-				if m.width >= 110 {
+				if m.width >= wideLayoutWidth {
 					parts := strings.SplitN(body, logHeader, 2)
 					right := m.style("title").Render("SELECTED ENTRY") + "\n" + ansi.Hardwrap(displayText(entries[min(m.selected, len(entries)-1)].Text), w-logWidth-5, true)
 					rightLines := strings.Split(right, "\n")
@@ -532,16 +537,16 @@ func (m model) View() tea.View {
 	}
 	hints := "Ctrl+S Save · Enter New line · Esc Browse"
 	if m.mode == "browse" {
-		hints = "n New · e Edit · p Plan · b Blocker · g Daily · o O2O · Tab Tasks · q Quit"
-		if ansi.StringWidth(hints) > w {
-			// The compact layout keeps view navigation visible; ? help lists e Edit.
-			hints = "n New · p Plan · b Blocker · g Daily · o O2O · Tab Tasks · q Quit"
-		}
+		// Compact layouts keep view navigation visible; ? help lists every action.
+		hints = fitHints(w, "n New · e Edit · p Plan · b Blocker · g Daily · o O2O · Tab Tasks · ? Help · q Quit",
+			"n New · p Plan · b Blocker · g Daily · o O2O · Tab Tasks · q Quit")
 		if m.section == "tasks" {
-			hints = "n New · p Plan · d Done · c Open/Done · o O2O · Tab Today · q Quit"
+			hints = fitHints(w, "n New · p Plan · d Done · c Open/Done · o O2O · Tab Today · ? Help · q Quit",
+				"n New · p Plan · d Done · c Open/Done · o O2O · Tab Today · q Quit")
 		}
 		if m.section == "o2o" {
-			hints = "n New topic · Enter Read · t Today · Tab Tasks · ? Help · q Quit"
+			hints = fitHints(w, "n New topic · Enter Read · b Blocker · g Daily · t Today · Tab Tasks · ? Help · q Quit",
+				"n New topic · Enter Read · t Today · Tab Tasks · ? Help · q Quit")
 		}
 		if m.section == "daily" {
 			hints = "s Share · e Edit · r Prepare · v Saved · b Blocker · t Today · q Quit"
@@ -566,6 +571,14 @@ func (m model) View() tea.View {
 	v := tea.NewView(lipgloss.NewStyle().Padding(1, 4).Render(content))
 	v.AltScreen = true
 	return v
+}
+
+// fitHints returns the full key hints when they fit width, else the compact ones.
+func fitHints(width int, full, compact string) string {
+	if ansi.StringWidth(full) <= width {
+		return full
+	}
+	return compact
 }
 
 func displayText(text string) string {

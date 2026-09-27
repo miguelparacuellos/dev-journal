@@ -10,8 +10,9 @@ import (
 
 const topicPlaceholder = "What do you want to raise with your tech lead?"
 
-// updateTopics handles the O2O review keys. It reports false for keys shared
-// with other views, such as capture, help, discard, and quit.
+// updateTopics handles the O2O review keys. It reports false only for keys
+// shared with other views (capture, help, discard, quit, and Esc); every other
+// key is consumed so Today and Tasks actions never act on O2O topics.
 func (m model) updateTopics(key string) (model, bool) {
 	topics := m.app.OpenTopics()
 	switch key {
@@ -23,9 +24,7 @@ func (m model) updateTopics(key string) (model, bool) {
 		if len(topics) > 0 {
 			m.openText("topic-detail", topics[m.selected].Text)
 		}
-	case "e", "p", "d", "c", "u", "left", "right", "h", "l":
-		// Log, plan, and task actions do not apply to O2O topics.
-	default:
+	case "n", "x", "?", "q", "ctrl+c", "esc":
 		return m, false
 	}
 	return m, true
@@ -39,7 +38,7 @@ func (m model) topicsBody(width int) string {
 		return header + "\n\nNothing to raise yet. n captures a topic whenever it comes up;\nit stays open across days until it is addressed in a one to one.\n"
 	}
 	listWidth := width
-	if m.width >= 110 {
+	if m.width >= wideLayoutWidth {
 		listWidth = width/2 - 3
 	}
 	available := max(1, m.height-18)
@@ -59,7 +58,7 @@ func (m model) topicsBody(width int) string {
 		list += line + "\n"
 	}
 	list += m.style("muted").Render(fmt.Sprintf("%d-%d of %d · Enter reads the complete topic", start+1, end, len(topics)))
-	if m.width < 110 {
+	if m.width < wideLayoutWidth {
 		return list
 	}
 	selected := topics[min(m.selected, len(topics)-1)]
