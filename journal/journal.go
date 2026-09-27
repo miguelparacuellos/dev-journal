@@ -103,7 +103,7 @@ func (j *Journal) Correct(id, text string) error {
 		return errors.New("entry not found")
 	})
 }
-func (j *Journal) change(update func() error) error {
+func (j *Journal) change(update func() error) (err error) {
 	if err := os.MkdirAll(filepath.Dir(j.path), 0700); err != nil {
 		return err
 	}
@@ -119,6 +119,13 @@ func (j *Journal) change(update func() error) error {
 	if err = j.reload(); err != nil {
 		return err
 	}
+	previous := j.data
+	previous.Entries = append([]Entry(nil), j.data.Entries...)
+	defer func() {
+		if err != nil {
+			j.data = previous
+		}
+	}()
 	if err = update(); err != nil {
 		return err
 	}
@@ -142,8 +149,12 @@ func (j *Journal) change(update func() error) error {
 		err = os.Rename(tmp.Name(), j.path)
 	}
 	if err != nil {
-		_ = j.reload()
 		return err
 	}
-	return nil
+	directory, openErr := os.Open(filepath.Dir(j.path))
+	if openErr != nil {
+		return openErr
+	}
+	defer directory.Close()
+	return directory.Sync()
 }

@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import select
+import re
 import statistics
 import struct
 import subprocess
@@ -56,7 +57,8 @@ with tempfile.TemporaryDirectory() as directory:
     launches = []
     for _ in range(30):
         master, process, started = launch(path)
-        until(master, b"Ctrl+S")
+        frame=until(master, b"Ctrl+S")
+        assert not re.search(rb"\x1b\[[0-9;]*(?:38|48);", frame), "Monochrome frame contains color"
         launches.append((time.perf_counter() - started) * 1000)
         close(master, process)
     master, process, _ = launch(path)
@@ -97,6 +99,21 @@ with tempfile.TemporaryDirectory() as directory:
     os.write(master, b"xq")
     process.wait(timeout=3)
     os.close(master)
+    # Corrections must preserve editing beyond the editor library's default 99 rows.
+    long_path = pathlib.Path(directory) / "long.json"
+    original = "\n".join(f"line {i}" for i in range(100))
+    subprocess.run([binary, "--data", str(long_path), "add", "-"], input=original.encode(), check=True, stdout=subprocess.PIPE)
+    master, process, _ = launch(long_path)
+    until(master, b"Ctrl+S")
+    os.write(master, b"\x1b")
+    time.sleep(0.08)
+    os.write(master, b"e")
+    until(master, b"Correct entry")
+    os.write(master, b"\rEXTRA\x13")
+    until(master, b"Saved")
+    close(master, process)
+    corrected = subprocess.check_output([binary, "--data", str(long_path), "log"]).decode()
+    assert "line 99\nEXTRA" in corrected, "Long-entry correction dropped its newline"
     failure_parent = pathlib.Path(directory) / "unavailable"
     failure_path = failure_parent / "journal.json"
     master, process, _ = launch(failure_path)

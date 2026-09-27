@@ -31,7 +31,11 @@ func newModel(app *journal.Journal, day, theme string, ascii bool) model {
 	editor.Placeholder = "What moved forward?"
 	editor.ShowLineNumbers = false
 	editor.CharLimit = 0
+	editor.MaxHeight = 0
+	editor.MaxWidth = 0
 	editor.Prompt = ""
+	state := textarea.StyleState{Placeholder: lipgloss.NewStyle().Faint(true), Selection: lipgloss.NewStyle().Reverse(true)}
+	editor.SetStyles(textarea.Styles{Focused: state, Blurred: state, Cursor: textarea.CursorStyle{Shape: tea.CursorBlock, Blink: true}})
 	editor.SetHeight(3)
 	editor.Focus()
 	return model{app: app, today: day, day: day, theme: theme, ascii: ascii, editor: editor, preview: viewport.New(viewport.WithWidth(70), viewport.WithHeight(10)), mode: "capture", status: "Local journal • ready to write"}
@@ -42,6 +46,12 @@ func (m *model) size() {
 	m.editor.SetHeight(3)
 	m.preview.SetWidth(max(20, m.width-8))
 	m.preview.SetHeight(max(3, m.height-12))
+	if m.mode == "detail" {
+		entries := m.entries()
+		if len(entries) > 0 {
+			m.preview.SetContent(ansi.Hardwrap(displayText(entries[m.selected].Text), max(20, m.width-8), true))
+		}
+	}
 }
 func (m *model) entries() []journal.Entry { return m.app.Entries(m.day) }
 func (m *model) save() {

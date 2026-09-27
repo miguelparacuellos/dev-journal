@@ -69,7 +69,9 @@ macOS and Linux are the packaging targets. PTY output confirms compact/wide
 layouts, fallback text, and keyboard workflows; it does not establish native
 font rendering or visual contrast in every terminal. Native macOS Terminal,
 the user's preferred emulator, VS Code's terminal, tmux, and screen readers
-have not been individually reviewed. Light/dark palette checks here concern
+have not been individually reviewed. Root attempted native Terminal review through
+the computer-use tool, which rejected access to `com.apple.Terminal` for safety
+reasons. No bypass was attempted; native visual QA remains unverified. Light/dark palette checks here concern
 rendered roles and text, not photometric contrast measurements. Color
 adaptation is delegated to Charm, and monochrome works independently of it.
 
@@ -79,3 +81,24 @@ session drafts. Saved data is retained. Startup is offline; installing build
 dependencies needs network access once. Remaining emulator checks should be
 performed on the user's actual terminal before describing universal visual
 compatibility.
+
+## Required two-axis code review
+
+### Standards
+
+No actionable findings. English prose, glossary vocabulary, and public-boundary
+behavior tests conform to repository standards. UI mode strings and the rendering
+method can evolve as real additional views arrive; no speculative abstraction was
+requested for this single-view slice.
+
+### Spec
+
+One P2: the library's default 99-row limit silently blocked inserted newlines
+when correcting an existing long entry. Removed maximum editor dimensions and
+added a 100-line correction PTY regression. The regression passed. No scope
+creep found. Native visual compatibility remains partial as recorded above.
+
+Final post-fix PTY run: 30 samples; opening median 61.07 ms, p95 86.15 ms;
+multiline save 16.63 ms; 10,000-entry opening 52.91 ms and save 33.92 ms.
+Monochrome checks also reject emitted RGB color sequences. Directory metadata is
+synced after replacement; failed writes restore the in-memory saved view.
