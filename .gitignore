@@ -1,0 +1,4 @@
+/bin/
+/devjournal
+*.test
+.DS_Store
