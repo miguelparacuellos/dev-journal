@@ -253,7 +253,7 @@ func nextOneOnOneSummary(a *App) string {
 	days := int(next.Sub(today).Hours() / 24)
 	return fmt.Sprintf("%s · in %s\n%s prepped\n%s from earlier 1:1s",
 		next.Format("Mon 02 Jan"), plural(days, "day"), plural(len(doc.Section(store.SecTopics).Items), "topic"),
-		plural(len(a.st.OpenActionsBefore(next)), "open action"))
+		plural(len(a.st.OpenActionsBefore(today.AddDate(0, 0, 1))), "open action"))
 }
 
 func (s *dailyScreen) hints() []hint {
