@@ -1,6 +1,6 @@
 module github.com/miguelparacuellos/dev-journal
 
-go 1.27.1
+go 1.24.0
 
 require (
 	github.com/charmbracelet/bubbles v0.21.0

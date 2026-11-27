@@ -201,8 +201,9 @@ func (s *backlogScreen) mainView(w, h int) string {
 	if len(v) == 0 {
 		return sDim.Render("Nothing here. Press a — e.g. \"refactor: Extract pricing rules #rates-service !M\"")
 	}
-	repoW, effW, stW, typeW := 18, 4, 8, 9
-	titleW := max(10, w-repoW-effW-stW-typeW-4)
+	effW, stW, typeW := 4, 8, 9
+	repoW := min(18, max(8, w/6))
+	titleW := max(10, w-repoW-effW-stW-typeW-1)
 	header := sDim.Render(padRight("TYPE", typeW) + padRight("TITLE", titleW+1) + padRight("REPO", repoW) + padRight("EFF", effW) + "STATUS")
 	lines := []string{header}
 	start := max(0, s.cursor-h+2)

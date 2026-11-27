@@ -250,8 +250,9 @@ func nextOneOnOneSummary(a *App) string {
 	}
 	doc, _ := a.st.LoadOneOnOne(next)
 	days := int(next.Sub(today).Hours() / 24)
-	return fmt.Sprintf("%s · in %d days\n%d topics prepped\n%d open actions",
-		next.Format("Mon 02 Jan"), days, len(doc.Section(store.SecTopics).Items), len(a.st.OpenActionsBefore(next)))
+	return fmt.Sprintf("%s · in %s\n%s prepped\n%s from earlier 1:1s",
+		next.Format("Mon 02 Jan"), plural(days, "day"), plural(len(doc.Section(store.SecTopics).Items), "topic"),
+		plural(len(a.st.OpenActionsBefore(next)), "open action"))
 }
 
 func (s *dailyScreen) hints() []hint {
@@ -259,4 +260,11 @@ func (s *dailyScreen) hints() []hint {
 		return []hint{{"enter", "save"}, {"esc", "cancel"}}
 	}
 	return []hint{{"g", "✦ draft from Linear"}, {"a", "add"}, {"x", "toggle"}, {"d", "delete"}, {"y", "copy for Slack"}, {"←→", "day"}}
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return fmt.Sprintf("1 %s", word)
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
