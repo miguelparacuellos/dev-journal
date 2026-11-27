@@ -1,0 +1,20 @@
+# Build output
+/dj
+
+# Personal journal data must never be pushed. It lives in ~/dev-journal by default,
+# these rules only guard against DJ_HOME pointing inside this repo.
+/journal/
+daily/
+one-on-ones/
+backlog.md
+wins.md
+.cache/
+
+# Local issue tracker (see AGENTS.md); may hold personal context
+.scratch/
+
+# Local-only Claude Code and env files
+.claude/settings.local.json
+CLAUDE.local.md
+.env
+.env.*
