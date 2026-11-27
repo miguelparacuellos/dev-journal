@@ -177,7 +177,7 @@ func (s *backlogScreen) listView(w, h int) string {
 	entry := func(idx int, label string, n int) {
 		text := fmt.Sprintf("%s %s", label, sDim.Render(fmt.Sprint(n)))
 		if idx == s.typeIdx {
-			lines = append(lines, sSel.Render(padRight("▸ "+text, w)))
+			lines = append(lines, selectedRow("▸ "+text, w))
 		} else {
 			lines = append(lines, "  "+text)
 		}
@@ -225,7 +225,7 @@ func (s *backlogScreen) mainView(w, h int) string {
 			sDim.Render(padRight(truncate(repo, repoW-1), repoW)) +
 			padRight(it.Effort, effW) + st.Render(it.Status)
 		if i == s.cursor {
-			line = sSel.Render(padRight(line, w))
+			line = selectedRow(line, w)
 		}
 		lines = append(lines, line)
 	}

@@ -88,6 +88,11 @@ func box(title, content string, w, h int, focused bool) string {
 	return strings.Join(append(append([]string{top}, body...), bottom), "\n")
 }
 
+// selected drops inner colours so the highlight spans the whole row.
+func selectedRow(line string, w int) string {
+	return sSel.Foreground(cFg).Bold(true).Render(padRight(ansi.Strip(line), w))
+}
+
 type hint struct{ key, desc string }
 
 func renderHints(hints []hint, w int) string {

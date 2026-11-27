@@ -245,11 +245,11 @@ func (e *docEditor) view(w, h int) string {
 			if selected && e.mode == modeEdit {
 				line = inputLine(itemPrefix(it))
 			} else {
-				line = itemPrefix(it) + itemText(it, w-6)
+				line = itemPrefix(it) + itemText(it, w-lipgloss.Width(itemPrefix(it)))
 			}
 		}
 		if selected && e.mode != modeEdit {
-			line = sSel.Render(padRight(line, w))
+			line = selectedRow(line, w)
 		}
 		lines = append(lines, line)
 		if selected && e.mode == modeAdd {

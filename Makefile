@@ -10,3 +10,7 @@ test:
 
 install:
 	go build -o $(BIN) ./cmd/dj
+
+.PHONY: demo
+demo: build
+	PATH="$(CURDIR):$$PATH" vhs demo/dj.tape

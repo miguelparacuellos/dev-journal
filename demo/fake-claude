@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Stand-in for `claude -p` in the demo recording: no network, canned answer.
+sleep 2
+cat <<'JSON'
+{"is_error": false, "result": "{\"yesterday\": [{\"text\": \"ABC-412 Refund flow for cancelled bookings — moved to In Review\", \"why\": \"In Progress → In Review, PR opened\", \"default\": true}, {\"text\": \"ABC-431 Rate-limit docs — only a comment from me\", \"why\": \"noise\", \"default\": false}], \"today\": [{\"text\": \"ABC-412 Address review comments\", \"why\": \"2 review comments\", \"default\": true}], \"blockers\": [{\"text\": \"ABC-420 waiting on infra for queue permissions\", \"why\": \"blocked by INFRA-77\", \"default\": true}], \"issues\": [{\"id\": \"ABC-420\", \"title\": \"Webhook retries with backoff\", \"status\": \"In Progress\"}, {\"id\": \"ABC-412\", \"title\": \"Refund flow for cancelled bookings\", \"status\": \"In Review\"}, {\"id\": \"ABC-431\", \"title\": \"Rate-limit docs\", \"status\": \"Todo\"}, {\"id\": \"ABC-398\", \"title\": \"Fix flaky checkout e2e\", \"status\": \"Done\"}]}"}
+JSON

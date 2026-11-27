@@ -1,0 +1,8 @@
+{
+  "syncedAt": "2026-11-26T09:01:00+01:00",
+  "issues": [
+    {"id": "ABC-412", "title": "Refund flow for cancelled bookings", "status": "In Progress"},
+    {"id": "ABC-420", "title": "Webhook retries with backoff", "status": "Todo"},
+    {"id": "ABC-398", "title": "Fix flaky checkout e2e", "status": "Done"}
+  ]
+}

@@ -121,6 +121,7 @@ func (s *dailyScreen) draft() tea.Cmd {
 	since := previousWorkday(date)
 	existing := s.ed.doc.Render()
 	opts := s.app.claudeOpts()
+	syncedAt := s.app.now()
 	st := s.app.st
 	run := func() tea.Cmd {
 		return func() tea.Msg {
@@ -131,7 +132,7 @@ func (s *dailyScreen) draft() tea.Cmd {
 				return pickResultMsg{err: err}
 			}
 			if len(d.Issues) > 0 {
-				c := store.LinearCache{SyncedAt: time.Now()}
+				c := store.LinearCache{SyncedAt: syncedAt}
 				for _, i := range d.Issues {
 					c.Issues = append(c.Issues, store.LinearIssue(i))
 				}
@@ -193,7 +194,7 @@ func (s *dailyScreen) listView(w, h int) string {
 			label += " " + sAccent.Render("today")
 		}
 		if i == s.idx {
-			lines = append(lines, sSel.Render(padRight("▸ "+label, w)))
+			lines = append(lines, selectedRow("▸ "+label, w))
 		} else {
 			lines = append(lines, "  "+label)
 		}

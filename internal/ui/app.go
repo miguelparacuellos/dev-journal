@@ -250,7 +250,7 @@ func (a *App) View() string {
 	var nav []string
 	for i, n := range a.names {
 		if i == a.active {
-			nav = append(nav, sSel.Render(padRight(sAccent.Render(fmt.Sprintf("%d", i+1))+" ▸ "+sBold.Render(n), leftW-4)))
+			nav = append(nav, selectedRow(sAccent.Render(fmt.Sprintf("%d", i+1))+" ▸ "+sBold.Render(n), leftW-4))
 		} else {
 			nav = append(nav, sDim.Render(fmt.Sprintf("%d", i+1))+"   "+n)
 		}

@@ -28,13 +28,26 @@ func main() {
 		debugDraft(st, cfg)
 		return
 	}
-	app, err := ui.New(st, cfg, time.Now)
+	app, err := ui.New(st, cfg, clock())
 	if err != nil {
 		fail(err)
 	}
 	if _, err := tea.NewProgram(app, tea.WithAltScreen()).Run(); err != nil {
 		fail(err)
 	}
+}
+
+// clock pins "today" when DJ_DEMO_DATE is set, so the demo recording is reproducible.
+func clock() func() time.Time {
+	d := os.Getenv("DJ_DEMO_DATE")
+	if d == "" {
+		return time.Now
+	}
+	t, err := time.ParseInLocation(store.DateLayout, d, time.Local)
+	if err != nil {
+		fail(err)
+	}
+	return func() time.Time { return t.Add(9 * time.Hour) }
 }
 
 // debugDraft runs the Linear daily draft without the TUI and prints the raw result.

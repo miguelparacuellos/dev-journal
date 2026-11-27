@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/miguelparacuellos/dev-journal/internal/claude"
 )
@@ -123,7 +124,7 @@ func (p *picker) view(a *App, w, h int) string {
 			}
 			line := box + highlightTickets(truncate(it.text, w-4))
 			if i == p.cursor {
-				line = sSel.Render(padRight(line, w))
+				line = selectedRow(line, w)
 				cursorLine = len(lines)
 			}
 			lines = append(lines, line)
@@ -142,13 +143,5 @@ func (p *picker) view(a *App, w, h int) string {
 }
 
 func wrap(s string, w int) []string {
-	var out []string
-	for _, para := range strings.Split(s, "\n") {
-		for len(para) > w && w > 0 {
-			out = append(out, para[:w])
-			para = para[w:]
-		}
-		out = append(out, para)
-	}
-	return out
+	return strings.Split(ansi.Wrap(s, max(1, w), ""), "\n")
 }

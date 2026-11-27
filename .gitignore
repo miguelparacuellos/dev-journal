@@ -9,6 +9,12 @@ one-on-ones/
 backlog.md
 wins.md
 .cache/
+# ...except the fictional demo journal used to record demo/dj.gif
+!/demo/journal/daily/
+!/demo/journal/one-on-ones/
+!/demo/journal/backlog.md
+!/demo/journal/wins.md
+!/demo/journal/.cache/
 
 # Local issue tracker (see AGENTS.md); may hold personal context
 .scratch/

@@ -4,6 +4,18 @@
 your standup, your 1:1s, the refactors you'll do "someday", and your wins.
 Plain Markdown on disk, with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and Linear built in.
 
+![dj demo: drafting a standup from Linear, then the 1:1s, Backlog and Wins screens](demo/dj.gif)
+
+<sub>Recorded with [VHS](https://github.com/charmbracelet/vhs) on a fictional journal and a stubbed Claude response (`make demo`).</sub>
+
+- **Standup in seconds.** Press `g` and Claude Code reads your current Linear cycle, then drafts *Yesterday / Today / Blockers*. You tick which suggestions to keep.
+- **1:1s with context.** Open actions from earlier 1:1s and your wins since the last one show beside the agenda. Press `P` for a drafted agenda.
+- **A home for "I should refactor that".** Capture refactors, ideas and improvements in one line, then filter them by type and repo.
+- **Your data stays yours.** Everything is Markdown in a folder outside this repo. The only thing that leaves your machine is a Claude run you start yourself.
+
+<details>
+<summary><b>Static screens:</b> Daily, 1:1s and Backlog</summary>
+
 ```text
  dev-journal  Fri 27 Nov · Linear ABC
 ╭─ sections ───────────╮╭─ daily · fri 27 nov ───────────────────────────────────╮╭─ linear · my cycle issues · 09:02 ─────╮
@@ -27,14 +39,6 @@ Plain Markdown on disk, with [Claude Code](https://docs.anthropic.com/en/docs/cl
 ╰──────────────────────╯╰────────────────────────────────────────────────────────╯╰────────────────────────────────────────╯
   g  ✦ draft from Linear   a  add   x  toggle   d  delete   y  copy for Slack   ←→  day   e  editor   c  claude   q  quit
 ```
-
-- **Standup in seconds.** Press `g` and Claude Code reads your current Linear cycle, then drafts *Yesterday / Today / Blockers*. You tick which suggestions to keep.
-- **1:1s with context.** Open actions from earlier 1:1s and your wins since the last one show beside the agenda. Press `P` for a drafted agenda.
-- **A home for "I should refactor that".** Capture refactors, ideas and improvements in one line, then filter them by type and repo.
-- **Your data stays yours.** Everything is Markdown in a folder outside this repo. The only thing that leaves your machine is a Claude run you start yourself.
-
-<details>
-<summary><b>More screens:</b> 1:1s and Backlog</summary>
 
 ```text
  dev-journal  1:1 · Thu 03 Dec (in 6 days)
@@ -268,10 +272,12 @@ Rules live inline in the controller; hard to test and duplicated in the quote en
 make test      # go test ./...
 make build     # ./dj
 make install   # ~/.local/bin/dj (override with BIN=…)
+make demo      # re-record demo/dj.gif (needs vhs)
 ```
 
 ```text
 cmd/dj/            entry point (+ `dj draft` debug command)
+demo/              VHS tape, fictional journal and Claude stub for the README GIF
 internal/config/   env + config.env resolution
 internal/store/    Markdown parsing and the journal layout
 internal/claude/   headless `claude -p` calls and prompts

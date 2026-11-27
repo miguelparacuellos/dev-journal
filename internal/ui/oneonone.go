@@ -233,7 +233,7 @@ func (s *oneOnOneScreen) listView(w, h int) string {
 			label += " " + sAccent.Render("next")
 		}
 		if i == s.idx {
-			lines = append(lines, sSel.Render(padRight("▸ "+label, w)))
+			lines = append(lines, selectedRow("▸ "+label, w))
 		} else {
 			lines = append(lines, "  "+label)
 		}
