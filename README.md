@@ -279,3 +279,7 @@ internal/ui/       Bubble Tea screens, list editor, suggestion picker
 ```
 
 Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss).
+
+## License
+
+[MIT](LICENSE)
