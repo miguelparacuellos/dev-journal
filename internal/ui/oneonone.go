@@ -182,12 +182,12 @@ func (s *oneOnOneScreen) agendaContext() string {
 
 func (s *oneOnOneScreen) draftAgenda() tea.Cmd {
 	notes := s.agendaContext()
-	root := s.app.st.Root
+	opts := s.app.claudeOpts()
 	run := func() tea.Cmd {
 		return func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
-			a, err := claude.DraftAgenda(ctx, root, notes)
+			a, err := claude.DraftAgenda(ctx, opts, notes)
 			if err != nil {
 				return pickResultMsg{err: err}
 			}

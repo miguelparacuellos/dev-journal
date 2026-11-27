@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -12,6 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/miguelparacuellos/dev-journal/internal/claude"
+	"github.com/miguelparacuellos/dev-journal/internal/config"
 	"github.com/miguelparacuellos/dev-journal/internal/store"
 )
 
@@ -51,6 +52,7 @@ func errStatus(err error) tea.Cmd {
 }
 
 type App struct {
+	cfg      config.Config
 	st       *store.Store
 	now      func() time.Time
 	screens  []screen
@@ -65,8 +67,8 @@ type App struct {
 	isErr    bool
 }
 
-func New(st *store.Store, now func() time.Time) (*App, error) {
-	a := &App{st: st, now: now, spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(sPurple))}
+func New(st *store.Store, cfg config.Config, now func() time.Time) (*App, error) {
+	a := &App{st: st, cfg: cfg, now: now, spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(sPurple))}
 	a.screens = []screen{newDailyScreen(a), newOneOnOneScreen(a), newBacklogScreen(a), newWinsScreen(a)}
 	a.names = []string{"Daily", "1:1s", "Backlog", "Wins"}
 	for _, s := range a.screens {
@@ -160,31 +162,15 @@ func (a *App) handleKey(msg tea.KeyMsg) tea.Cmd {
 		a.active = int(k[0] - '1')
 		return func() tea.Msg { return reloadMsg{} }
 	case "c":
-		return a.execIn(claudeBin())
+		return a.execIn(a.cfg.ClaudeBin)
 	case "e":
 		path, err := cur.file()
 		if err != nil {
 			return errStatus(err)
 		}
-		return a.execIn(editor(), path)
+		return a.execIn(a.cfg.Editor, path)
 	}
 	return cur.handleKey(msg)
-}
-
-func claudeBin() string {
-	if b := os.Getenv("DJ_CLAUDE_BIN"); b != "" {
-		return b
-	}
-	return "claude"
-}
-
-func editor() string {
-	for _, k := range []string{"VISUAL", "EDITOR"} {
-		if v := os.Getenv(k); v != "" {
-			return v
-		}
-	}
-	return "vi"
 }
 
 // execIn suspends the TUI and runs an interactive program in the journal dir.
@@ -200,9 +186,31 @@ func (a *App) execIn(bin string, args ...string) tea.Cmd {
 	})
 }
 
-func copyToClipboard(text string) tea.Cmd {
+func (a *App) claudeOpts() claude.Options {
+	return claude.Options{
+		Bin:            a.cfg.ClaudeBin,
+		Dir:            a.st.Root,
+		LinearTeam:     a.cfg.LinearTeam,
+		LinearAssignee: a.cfg.LinearAssignee,
+		LinearTools:    a.cfg.LinearTools,
+		Language:       a.cfg.Language,
+	}
+}
+
+func (a *App) linearScope() string {
+	if a.cfg.LinearTeam == "" {
+		return "Linear"
+	}
+	return "Linear " + a.cfg.LinearTeam
+}
+
+func (a *App) copyToClipboard(text string) tea.Cmd {
+	parts := strings.Fields(a.cfg.ClipboardCmd)
 	return func() tea.Msg {
-		cmd := exec.Command("pbcopy")
+		if len(parts) == 0 {
+			return statusMsg{text: "no clipboard command configured", isErr: true}
+		}
+		cmd := exec.Command(parts[0], parts[1:]...)
 		cmd.Stdin = strings.NewReader(text)
 		if err := cmd.Run(); err != nil {
 			return statusMsg{text: "copy failed: " + err.Error(), isErr: true}

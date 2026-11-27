@@ -10,20 +10,25 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/miguelparacuellos/dev-journal/internal/claude"
+	"github.com/miguelparacuellos/dev-journal/internal/config"
 	"github.com/miguelparacuellos/dev-journal/internal/store"
 	"github.com/miguelparacuellos/dev-journal/internal/ui"
 )
 
 func main() {
-	st := store.New(store.DefaultRoot())
+	st := store.New(config.DefaultHome())
 	if err := st.Scaffold(); err != nil {
 		fail(err)
 	}
+	cfg, err := config.Load(st.Root)
+	if err != nil {
+		fail(err)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "draft" {
-		debugDraft(st)
+		debugDraft(st, cfg)
 		return
 	}
-	app, err := ui.New(st, time.Now)
+	app, err := ui.New(st, cfg, time.Now)
 	if err != nil {
 		fail(err)
 	}
@@ -33,7 +38,7 @@ func main() {
 }
 
 // debugDraft runs the Linear daily draft without the TUI and prints the raw result.
-func debugDraft(st *store.Store) {
+func debugDraft(st *store.Store, cfg config.Config) {
 	today := store.Day(time.Now())
 	since := today.AddDate(0, 0, -1)
 	for since.Weekday() == time.Saturday || since.Weekday() == time.Sunday {
@@ -41,7 +46,10 @@ func debugDraft(st *store.Store) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
-	d, err := claude.DraftDaily(ctx, st.Root, today, since, "")
+	d, err := claude.DraftDaily(ctx, claude.Options{
+		Bin: cfg.ClaudeBin, Dir: st.Root, LinearTeam: cfg.LinearTeam, LinearAssignee: cfg.LinearAssignee,
+		LinearTools: cfg.LinearTools, Language: cfg.Language,
+	}, today, since, "")
 	if err != nil {
 		fail(err)
 	}

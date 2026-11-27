@@ -30,14 +30,6 @@ type Store struct {
 
 func New(root string) *Store { return &Store{Root: root} }
 
-func DefaultRoot() string {
-	if r := os.Getenv("DJ_HOME"); r != "" {
-		return r
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "dev-journal")
-}
-
 func writeFile(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/miguelparacuellos/dev-journal/internal/config"
 	"github.com/miguelparacuellos/dev-journal/internal/store"
 )
 
@@ -19,7 +20,7 @@ func newTestApp(t *testing.T) (*App, *store.Store) {
 		t.Fatal(err)
 	}
 	now := func() time.Time { return time.Date(2026, 11, 27, 9, 0, 0, 0, time.Local) }
-	a, err := New(st, now)
+	a, err := New(st, config.Config{Home: st.Root, ClaudeBin: "claude", Editor: "vi", ClipboardCmd: "true"}, now)
 	if err != nil {
 		t.Fatal(err)
 	}

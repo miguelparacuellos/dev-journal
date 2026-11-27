@@ -90,7 +90,7 @@ func (s *dailyScreen) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "g":
 			return s.draft()
 		case "y":
-			return copyToClipboard(slackDaily(s.ed.doc))
+			return s.app.copyToClipboard(slackDaily(s.ed.doc))
 		}
 	}
 	changed, cmd := s.ed.update(msg)
@@ -120,13 +120,13 @@ func (s *dailyScreen) draft() tea.Cmd {
 	date := s.date()
 	since := previousWorkday(date)
 	existing := s.ed.doc.Render()
-	root := s.app.st.Root
+	opts := s.app.claudeOpts()
 	st := s.app.st
 	run := func() tea.Cmd {
 		return func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
-			d, err := claude.DraftDaily(ctx, root, date, since, existing)
+			d, err := claude.DraftDaily(ctx, opts, date, since, existing)
 			if err != nil {
 				return pickResultMsg{err: err}
 			}
@@ -151,7 +151,7 @@ func (s *dailyScreen) draft() tea.Cmd {
 		s.linear = st.LoadLinearCache()
 		return tea.Batch(s.save(), status(fmt.Sprintf("inserted %d items", len(chosen))))
 	}
-	cmdline := fmt.Sprintf(`claude -p "daily draft" · Linear %s current cycle · since %s`, claude.LinearTeam(), since.Format("Mon 02"))
+	cmdline := fmt.Sprintf(`claude -p "daily draft" · %s current cycle · since %s`, s.app.linearScope(), since.Format("Mon 02"))
 	return s.app.openPicker("draft from Linear", cmdline, run, apply)
 }
 
@@ -172,7 +172,7 @@ func slackDaily(d store.Doc) string {
 }
 
 func (s *dailyScreen) info() string {
-	return s.app.today().Format("Mon 02 Jan") + " · Linear " + claude.LinearTeam()
+	return s.app.today().Format("Mon 02 Jan") + " · " + s.app.linearScope()
 }
 
 func (s *dailyScreen) listTitle() string { return "days" }

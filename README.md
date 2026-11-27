@@ -37,7 +37,21 @@ Open 1:1 actions carry to the next 1:1, and wins since the previous 1:1 show bes
   `/daily-draft` and `/one-on-one-prep` are available as slash commands.
 - `dj draft` prints the raw Linear draft JSON (debugging).
 
-Env: `DJ_HOME`, `DJ_LINEAR_TEAM` (default `DEV`), `DJ_LINEAR_TOOLS` (default `mcp__claude_ai_Linear`), `DJ_CLAUDE_BIN`.
+## Configuration
+
+Everything user-specific is configurable. On first run `dj` writes `$DJ_HOME/config.env` (outside this repo) with
+every setting; edit it, or export the same variable names, which take precedence.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DJ_HOME` | `~/dev-journal` | Where your journal lives (env only) |
+| `DJ_LINEAR_TEAM` | empty = all your teams | Linear team key whose active cycle feeds the daily draft, e.g. `ENG` |
+| `DJ_LINEAR_ASSIGNEE` | `me` | Whose issues to read; `me` is the user signed in to the Linear connector |
+| `DJ_LINEAR_TOOLS` | `mcp__claude_ai_Linear` | Comma-separated Claude Code tools/servers allowed during the draft (match your Linear MCP name from `claude mcp list`) |
+| `DJ_LANGUAGE` | `English` | Language Claude writes drafts in |
+| `DJ_CLAUDE_BIN` | `claude` | Claude Code binary |
+| `DJ_EDITOR` | `$VISUAL` / `$EDITOR` / `vi` | Editor for `e` |
+| `DJ_CLIPBOARD_CMD` | `pbcopy` | Clipboard command for `y` (e.g. `wl-copy`, `xclip -selection clipboard`) |
 
 ## Global hotkey in Warp
 
