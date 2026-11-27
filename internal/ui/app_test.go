@@ -169,3 +169,14 @@ func TestPickerAppliesChosenItems(t *testing.T) {
 		t.Fatalf("doc = %+v", doc)
 	}
 }
+
+func TestNextOneOnOneCountsActionsFromTodaysOneOnOne(t *testing.T) {
+	a, st := newTestApp(t)
+	today := a.today()
+	if err := store.SaveDoc(st.OneOnOnePath(today), store.ParseDoc("## Actions\n- [ ] two reviews a day\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got := nextOneOnOneSummary(a); !strings.Contains(got, "1 open action") {
+		t.Fatalf("summary = %q", got)
+	}
+}
